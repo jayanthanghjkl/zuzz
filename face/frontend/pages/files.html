@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Files</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/files.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">File Manager</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <span id="kill-badge" class="badge badge-ok" title="Emergency stop">running</span>
+      <a class="ghost-btn tab-link" href="/pages/hands.html" title="Desktop control (gated)">Desktop</a>
+      <a class="ghost-btn tab-link" href="/" title="Back to chat">Chat</a>
+      <button id="trash-btn" class="ghost-btn" type="button" title="Trash">Trash</button>
+      <button id="stop-btn" class="stop-btn" type="button" title="Emergency stop (Ctrl+Shift+Q)">Stop</button>
+    </div>
+  </header>
+
+  <div id="stop-banner" class="stop-banner hidden">
+    <span>ZUZZ is stopped — file operations are disabled.</span>
+  </div>
+
+  <main class="files-layout">
+    <nav id="tree-panel" class="tree-panel" aria-label="Directory tree">
+      <div class="panel-head">
+        <input id="tree-root" class="tree-root" value="." title="Root path" />
+        <button id="tree-go" class="ghost-btn" type="button">Open</button>
+      </div>
+      <div id="tree" class="tree"></div>
+    </nav>
+
+    <section id="file-panel" class="file-panel" aria-label="File list">
+      <div class="panel-head">
+        <span id="current-path" class="current-path">.</span>
+        <label class="check"><input id="show-hidden" type="checkbox" /> hidden</label>
+      </div>
+      <div id="progress" class="progress hidden">
+        <div id="progress-bar" class="progress-bar"></div>
+        <span id="progress-label" class="progress-label"></span>
+      </div>
+      <table id="file-table" class="file-table">
+        <thead>
+          <tr><th>Name</th><th>Size</th><th>Modified</th><th>Class</th></tr>
+        </thead>
+        <tbody id="file-rows"></tbody>
+      </table>
+    </section>
+
+    <aside id="preview-panel" class="preview-panel" aria-label="Preview">
+      <h2 id="preview-title">Preview</h2>
+      <pre id="preview-meta" class="preview-meta">Select a file.</pre>
+      <pre id="preview-content" class="preview-content"></pre>
+      <div class="preview-actions">
+        <button id="backups-btn" class="ghost-btn" type="button">Backups</button>
+      </div>
+      <div id="backups-list" class="backups-list"></div>
+    </aside>
+  </main>
+
+  <div id="context-menu" class="context-menu hidden">
+    <button data-op="read">Read</button>
+    <button data-op="write">Write</button>
+    <button data-op="copy">Copy…</button>
+    <button data-op="move">Move…</button>
+    <button data-op="rename">Rename…</button>
+    <button data-op="delete" class="danger">Delete</button>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <h2 id="modal-title">Confirm</h2>
+      <dl id="modal-details" class="modal-details"></dl>
+      <pre id="modal-plan" class="modal-plan hidden"></pre>
+      <label class="check"><input id="modal-dry-run" type="checkbox" /> dry run only</label>
+      <div class="modal-row">
+        <button id="modal-confirm" class="send-btn" type="button">Confirm</button>
+        <button id="modal-cancel" class="ghost-btn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="trash-modal" class="modal hidden">
+    <div class="modal-box wide">
+      <h2>Trash</h2>
+      <div id="trash-stats" class="trash-stats"></div>
+      <ul id="trash-list" class="trash-list"></ul>
+      <div class="modal-row">
+        <button id="empty-trash" class="stop-btn" type="button">Empty trash</button>
+        <button id="trash-close" class="ghost-btn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/js/files.js"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Digital Brain</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Digital Brain</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <div id="provider-dots" class="provider-dots" title="Cloud provider status"></div>
+      <span id="level-badge" class="badge" title="Routing level">L?</span>
+      <span id="conn-badge" class="badge badge-warn">connecting</span>
+      <span id="kill-badge" class="badge badge-ok" title="Emergency stop">running</span>
+      <button id="status-btn" class="ghost-btn" type="button">Status</button>
+      <a id="files-tab" class="ghost-btn tab-link" href="/pages/files.html" title="File manager (gated)">Files</a>
+      <a id="hands-tab" class="ghost-btn tab-link" href="/pages/hands.html" title="Desktop control (gated)">Desktop</a>
+      <button id="clear-btn" class="ghost-btn" type="button">New chat</button>
+      <button id="stop-btn" class="stop-btn" type="button" title="Emergency stop (Ctrl+Shift+Q)">Stop</button>
+    </div>
+  </header>
+
+  <div id="stop-banner" class="stop-banner hidden">
+    <div class="stop-banner-main">
+      <span id="stop-banner-text" class="stop-banner-text">ZUZZ is stopped.</span>
+      <span id="stop-cooldown" class="stop-cooldown"></span>
+    </div>
+    <div class="stop-banner-row">
+      <input id="stop-word" class="stop-word" type="text" placeholder="type RESET to restart" autocomplete="off" />
+      <button id="stop-reset-btn" class="stop-reset-btn hidden" type="button">Restart ZUZZ</button>
+    </div>
+  </div>
+
+  <main id="chat-log" class="chat-log" aria-live="polite">
+    <div class="message message-bot">
+      <div class="bubble">Hey Jayanthan. ZUZZ is awake. Ask me anything.</div>
+    </div>
+  </main>
+
+  <footer class="composer">
+    <div class="composer-row">
+      <select id="level-select" class="level-select" title="Routing level">
+        <option value="auto">Auto route</option>
+        <option value="1">L1 local fast</option>
+        <option value="2">L2 local smart</option>
+        <option value="3">L3 cloud expert</option>
+      </select>
+      <textarea
+        id="input"
+        class="input"
+        rows="1"
+        placeholder="Message ZUZZ... (Enter to send, Shift+Enter for newline)"
+        autocomplete="off"
+      ></textarea>
+      <button id="send-btn" class="send-btn" type="button">Send</button>
+    </div>
+    <div id="hint" class="hint">Streaming via WebSocket</div>
+  </footer>
+
+  <aside id="status-panel" class="status-panel hidden">
+    <h2>Brain status</h2>
+    <pre id="status-json" class="status-json">loading...</pre>
+  </aside>
+
+  <script src="/static/js/websocket.js"></script>
+  <script src="/static/js/chat.js"></script>
+  <script src="/static/js/killswitch.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

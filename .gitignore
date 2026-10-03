@@ -1,0 +1,81 @@
+# Secrets — never commit
+#
+# Order matters: the broad patterns come first and the narrow exceptions last.
+# Git applies the last matching pattern that applies, so a negation placed here
+# deliberately re-includes the template while leaving every real secret out.
+
+# Every .env variant: .env, .env.local, .env.production, and any other suffix.
+.env
+.env.*
+# The template is the one exception. It holds no key material — every secret
+# field is left empty for the operator to fill in a real .env. Without this the
+# setup instructions in SETUP.md reference a file nobody else can see.
+!.env.example
+
+# The API vault and its decryption key. Both live under storage/ (see
+# brain/corpus_callosum/api_vault.py), NOT config/api_vault.enc as originally
+# assumed. Committing vault.json *and* .vault_key together would hand anyone who
+# cloned the repo every provider key in plaintext, because the key that opens
+# the vault would be sitting right beside it.
+storage/vault.json
+storage/.vault_key
+config/api_vault.enc
+*.vault_key
+
+# Loose key material, however it is named or suffixed.
+*.key
+*.pem
+*.p12
+*.pfx
+# Credentials in any form. Both names are listed because the file name has a
+# space in it and because people rename it rather than deleting it.
+api keys.md
+api_keys.md
+*api*keys*.md
+*secrets*.md
+*credentials*.md
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data — logs, memory and state are this machine's history, not source.
+storage/logs/
+storage/temp/
+storage/cache/
+storage/screenshots/
+storage/memory/
+# Switch and trust state. Committing these would ship one machine's kill-switch
+# posture to everyone else's first run.
+storage/kill_switch.json
+storage/trust_level.json
+
+# File operation safety artifacts. The trash manifest records what ZUZZ has
+# moved to the bin, which is a listing of the user's real files.
+.zuzz_trash/
+*.bak
+*.bak.*
+*.bak.1
+*.bak.2
+*.bak.3
+*.tmp
+*.orig
+*.rej
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

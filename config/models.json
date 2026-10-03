@@ -1,0 +1,76 @@
+{
+  "levels": {
+    "1": {
+      "name": "sprint",
+      "provider": "local",
+      "model_env": "LOCAL_MODEL_FAST",
+      "timeout": 30
+    },
+    "2": {
+      "name": "local_squad",
+      "provider": "local",
+      "model_env": "LOCAL_MODEL_SMART",
+      "timeout": 120
+    },
+    "3": {
+      "name": "cloud_expert",
+      "provider": "cloud",
+      "model_env": "CLOUD_MODEL",
+      "timeout": 120
+    },
+    "4": {
+      "name": "cloud_orchestra",
+      "provider": "cloud",
+      "model_env": "CLOUD_MODEL",
+      "timeout": 300
+    },
+    "5": {
+      "name": "background_agent",
+      "provider": "cloud",
+      "model_env": "CLOUD_MODEL",
+      "timeout": 600
+    }
+  },
+  "fallback_order": [
+    "groq",
+    "colab",
+    "huggingface",
+    "openrouter",
+    "nvidia"
+  ],
+  "free_only_default": true,
+  "_models": {
+    "_comment": "Per-model resource profiles. vram_mb is the static loaded-model footprint; ram_mb is the process overhead. KV cache growth during inference is estimated dynamically by the predictor at 1.2x for local reasoning tasks.",
+    "qwen2.5-coder:1.5b": {
+      "vram_mb": 1200,
+      "ram_mb": 500,
+      "priority": "always_loaded",
+      "role": "fast_responses",
+      "_comment": "Preloaded at startup: fast responses need this model resident"
+    },
+    "qwen2.5-coder:3b": {
+      "vram_mb": 2200,
+      "ram_mb": 700,
+      "priority": "on_demand",
+      "role": "complex_responses",
+      "idle_timeout_seconds": 60,
+      "_comment": "Lazy loaded on first complex request; unloaded after 60s idle"
+    },
+    "moondream": {
+      "vram_mb": 1600,
+      "ram_mb": 500,
+      "priority": "on_demand",
+      "role": "vision",
+      "idle_timeout_seconds": 60,
+      "_comment": "Lazy loaded on first vision request; unloaded after 60s idle"
+    },
+    "qwen2.5-coder:7b": {
+      "vram_mb": 4200,
+      "ram_mb": 1200,
+      "priority": "on_demand",
+      "role": "deep_reasoning",
+      "idle_timeout_seconds": 120,
+      "_comment": "Falls back to cloud when 4.5GB budget is insufficient"
+    }
+  }
+}

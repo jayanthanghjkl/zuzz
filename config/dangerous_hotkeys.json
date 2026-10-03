@@ -1,0 +1,43 @@
+{
+  "_comment": [
+    "Combinations ZUZZ may not synthesise, split by how they are treated.",
+    "",
+    "always_blocked  - refused outright at every trust level. Ctrl+Alt+Del and",
+    "                 Ctrl+Shift+Esc are the secure-attention and task-manager",
+    "                 sequences; an agent that reaches for them is trying to get",
+    "                 past a boundary the user can see.",
+    "requires_confirmation - allowed only after an explicit answer, and the",
+    "                 confirmation text says what will happen. Win+L locks the",
+    "                 machine with no warning, Win+R opens a run box that executes",
+    "                 anything, and Alt+F4 closes whatever has focus.",
+    "",
+    "Modifiers are compared in any order, so ('ctrl','alt','delete') and",
+    "('alt','ctrl','delete') are the same combination. Adding a combination here",
+    "is the only way to block one: there is no inline exemption."
+  ],
+  "always_blocked": [
+    ["ctrl", "alt", "delete"],
+    ["ctrl", "alt", "del"],
+    ["ctrl", "shift", "esc"],
+    ["ctrl", "alt", "backspace"]
+  ],
+  "requires_confirmation": [
+    ["win", "l"],
+    ["win", "r"],
+    ["alt", "f4"],
+    ["win", "d"],
+    ["ctrl", "alt", "delete", "alt", "delete"]
+  ],
+  "reserved_by_zuzz": [
+    ["ctrl", "shift", "q"]
+  ],
+  "_reserved_comment": [
+    "Ctrl+Shift+Q is ZUZZ's own emergency stop, handled by a separate process.",
+    "ZUZZ never synthesises it: doing so would stop itself by accident, and the",
+    "stop must always be something the human presses, never something the agent",
+    "types. It is refused at every trust level."
+  ],
+  "always_blocked_by_zuzz": [
+    ["ctrl", "shift", "q"]
+  ]
+}

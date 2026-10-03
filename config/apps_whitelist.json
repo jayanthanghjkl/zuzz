@@ -1,0 +1,66 @@
+{
+  "_comment": [
+    "Applications ZUZZ may open without an extra prompt. The key is what the",
+    "user types; the value is what gets launched. An app that is NOT here can",
+    "still be opened, but it is mapped to run_safe_commands and so asks at every",
+    "trust level rather than auto-approving like the entries below.",
+    "",
+    "This file is re-read on every lookup, so an edit takes effect without a restart.",
+    "The whitelist is a convenience, not a security boundary: it removes prompts, it",
+    "does not grant access. An application that is not here is still launchable, it",
+    "just asks every time.",
+    "",
+    "Removing an entry does not block that app, it only removes the auto-approval."
+  ],
+  "policy": {
+    "unknown_app_category": "run_safe_commands",
+    "whitelist_changes_logged": true
+  },
+  "apps": {
+    "chrome": "chrome.exe",
+    "firefox": "firefox.exe",
+    "edge": "msedge.exe",
+    "notepad": "notepad.exe",
+    "wordpad": "wordpad.exe",
+    "vscode": "Code.exe",
+    "code": "Code.exe",
+    "terminal": "cmd.exe",
+    "cmd": "cmd.exe",
+    "powershell": "powershell.exe",
+    "explorer": "explorer.exe",
+    "files": "explorer.exe",
+    "calculator": "calc.exe",
+    "calc": "calc.exe",
+    "paint": "mspaint.exe",
+    "settings": "ms-settings:",
+    "task_manager": "taskmgr.exe",
+    "taskmgr": "taskmgr.exe"
+  },
+  "never_launch": [
+    "cmd.exe /c",
+    "powershell.exe -enc",
+    "powershell.exe -e",
+    "runas.exe",
+    "regedit.exe",
+    "msconfig.exe",
+    "bcdedit.exe",
+    "wbemexec.exe",
+    "cscript.exe",
+    "mshta.exe"
+  ],
+  "protected_processes": [
+    "system",
+    "system idle process",
+    "registry",
+    "memory compression",
+    "csrss.exe",
+    "wininit.exe",
+    "winlogon.exe",
+    "services.exe",
+    "lsass.exe",
+    "svchost.exe",
+    "smss.exe",
+    "audiodg.exe",
+    "dwm.exe"
+  ]
+}

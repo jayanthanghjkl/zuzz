@@ -1,0 +1,13 @@
+{
+  "_comment": "Thermal thresholds for Hypothalamus thermal protection. Warn triggers a model downgrade; throttle forces unload of optional models; critical forces cloud-only mode.",
+  "gpu": {
+    "warn_celsius": 80,
+    "throttle_celsius": 85,
+    "critical_celsius": 90
+  },
+  "cpu": {
+    "warn_celsius": 85,
+    "throttle_celsius": 90,
+    "critical_celsius": 95
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "commands": [
+    "rm -rf /",
+    "format c:",
+    "del /f /s /q",
+    "rd /s /q",
+    "shutdown",
+    "reg delete",
+    "diskpart",
+    "cipher /w"
+  ],
+  "paths": [
+    "c:\\windows",
+    "c:\\program files",
+    "c:\\program files (x86)"
+  ],
+  "keywords": [
+    "password",
+    "credential",
+    "api key",
+    "ssh key"
+  ],
+  "patterns": [
+    {"id": "recursive_delete", "regex": "\\brm\\s+(-[a-z]*[rf][a-z]*\\s+)+", "applies_to": ["run_safe_commands", "run_python"]},
+    {"id": "root_wipe", "regex": "(?:\\s|^)(?:/\\*?|~|~/|[A-Za-z]:\\\\?)\\s*$", "applies_to": ["run_safe_commands", "run_python"]},
+    {"id": "recursive_delete_windows", "regex": "\\b(del|rd|rmdir)\\b[^\\n]{0,40}(?<!\\w)/s(?!\\w)", "applies_to": ["run_safe_commands", "run_python"]},
+    {"id": "system_path", "regex": "[a-z]:\\\\(windows|program files|programdata|\\$recycle\\.bin)", "applies_to": ["all"]},
+    {"id": "disk_utility", "regex": "\\b(diskpart|format|fsutil|cipher)\\b", "applies_to": ["run_safe_commands", "run_python", "install_software"]},
+    {"id": "registry_write", "regex": "\\breg\\s+(add|delete|import|edit)\\b", "applies_to": ["run_safe_commands", "run_python"]},
+    {"id": "power_state", "regex": "\\b(shutdown|reboot|halt|restart-computer)\\b", "applies_to": ["run_safe_commands", "run_python"]},
+    {"id": "credential_access", "regex": "(password|passwd|credential|api[_ -]?key|ssh key|\\.env\\b|id_rsa)", "applies_to": ["run_safe_commands", "run_python", "read_files", "access_credentials"]},
+    {"id": "force_flag", "regex": "(--force\\b|\\s-f\\s|/f\\b)", "applies_to": ["run_safe_commands", "run_python", "install_software"]},
+    {"id": "pipe_to_shell", "regex": "(curl|wget)[^\\n|]{0,120}\\|\\s*(sudo\\s+)?(ba)?sh", "applies_to": ["run_safe_commands", "run_python"]},
+    {"id": "privilege_escalation", "regex": "\\b(sudo|runas|start-process\\s+.*-verb\\s+runas)\\b", "applies_to": ["run_safe_commands", "run_python"]}
+  ],
+  "levels": {
+    "safe": [0, 2],
+    "caution": [3, 5],
+    "dangerous": [6, 8],
+    "forbidden": [9, 10]
+  },
+  "veto_level": "forbidden",
+  "confirmation_floor": "dangerous"
+}

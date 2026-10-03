@@ -1,0 +1,47 @@
+{
+  "levels": {
+    "1": {"name": "cautious", "description": "Ask permission for everything"},
+    "2": {"name": "assistant", "description": "Auto-approve read-only actions"},
+    "3": {"name": "operator", "description": "Auto-approve mouse, keyboard and safe commands"},
+    "4": {"name": "autonomous", "description": "Auto-approve writes and browsing"},
+    "5": {"name": "full", "description": "Full autonomy except immutable rules"}
+  },
+  "decisions": ["auto", "ask", "blocked"],
+  "actions": {
+    "chat":                {"1": "auto",    "2": "auto",    "3": "auto",    "4": "auto",    "5": "auto"},
+    "read_files":          {"1": "ask",     "2": "auto",    "3": "auto",    "4": "auto",    "5": "auto"},
+    "open_apps":           {"1": "ask",     "2": "auto",    "3": "auto",    "4": "auto",    "5": "auto"},
+    "close_apps":          {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
+    "fullscreen_control":  {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
+    "mouse_keyboard":      {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "run_safe_commands":   {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "write_files":         {"1": "ask",     "2": "auto",    "3": "auto",    "4": "auto",    "5": "auto"},
+    "browse":              {"1": "ask",     "2": "ask",     "3": "ask",     "4": "auto",    "5": "auto"},
+    "run_python":          {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "auto"},
+    "modify_plugins":      {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "auto"},
+    "delete_files":        {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
+    "install_software":    {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
+    "send_messages":       {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
+    "run_admin":           {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
+    "access_credentials":  {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
+    "delete_os_files":     {"1": "blocked", "2": "blocked", "3": "blocked", "4": "blocked", "5": "blocked"},
+    "share_data":          {"1": "blocked", "2": "blocked", "3": "blocked", "4": "blocked", "5": "blocked"},
+    "disable_safety":      {"1": "blocked", "2": "blocked", "3": "blocked", "4": "blocked", "5": "blocked"},
+    "manage_models":        {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"}
+  },
+  "policy": {
+    "default_trust_level": 1,
+    "delete_temp_auto_from_level": 3,
+    "protected_paths_block_writes": true,
+    "dry_run_default": false
+  },
+  "trust_change": {
+    "instant_when": [1],
+    "simple_confirm": [2],
+    "explain_new_permissions": [3],
+    "warn_reduced_oversight": [4],
+    "type_confirm": [5],
+    "confirmation_word": "CONFIRM",
+    "cooldown_seconds": 10
+  }
+}

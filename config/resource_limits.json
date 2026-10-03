@@ -1,0 +1,22 @@
+{
+  "_comment": "Resource budgets for the Hypothalamus. VRAM total is the cap on model allocations; the headroom is never allocated to models, keeping the OS compositor and desktop responsive. MAX_VRAM_MB and MAX_AGENT_RAM_MB are also read from .env, with these config values as defaults.",
+  "vram": {
+    "total_budget_mb": 4608,
+    "reserved_headroom_mb": 1500,
+    "warn_percent": 75,
+    "auto_unload_percent": 85,
+    "emergency_cloud_percent": 95,
+    "panic_percent": 98
+  },
+  "ram": {
+    "total_budget_mb": 3072,
+    "reserved_headroom_mb": 1024
+  },
+  "integrated_gpu_overhead_percent": 25,
+  "_modes": {
+    "_comment": "Power manager mode descriptions",
+    "idle": "No user input for 5 minutes - reduce background jobs",
+    "active": "User is interacting - normal operation",
+    "performance": "Heavy task - unload idle models for speed"
+  }
+}

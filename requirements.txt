@@ -1,0 +1,12 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+websockets==14.1
+httpx==0.28.1
+python-dotenv==1.0.1
+litellm==1.57.4
+apscheduler==3.11.0
+psutil==6.1.1
+pydantic==2.10.4
+pytest==8.3.4
+pytest-asyncio==0.25.0
+send2trash==2.1.0

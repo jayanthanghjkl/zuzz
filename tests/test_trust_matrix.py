@@ -1,0 +1,140 @@
+"""Trust matrix tests.
+
+The matrix is the single place where "what may ZUZZ do without asking" is
+defined. These tests restate the approved permissions independently of
+``config/trust_levels.json``, so widening access in the config without changing
+the spec fails here rather than passing unnoticed.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict
+
+import pytest
+
+from brain.prefrontal_cortex.action import Action, ActionCategory
+from brain.prefrontal_cortex.permission_gate import PermissionGate
+from brain.prefrontal_cortex.trust_matrix import ASK, AUTO, BLOCKED
+from brain.prefrontal_cortex.trust_matrix import TrustMatrix
+
+ALL_LEVELS = (1, 2, 3, 4, 5)
+
+
+def category_of(name: str) -> Any:
+    """Return an action category for ``name``, preferring the enum member.
+
+    ``manage_models`` is a config-only category: the matrix row is what makes it
+    real, and the safety core is locked against editing the enum. ``Action`` does
+    not enforce its annotation and the matrix looks categories up as strings, so
+    the raw value behaves identically — the same way
+    ``test_unknown_category_is_not_auto_approved`` already passes a bare string.
+    """
+    try:
+        return ActionCategory(name)
+    except ValueError:
+        return name
+
+
+#: The approved matrix, per the decisions of 2026-10-02, as widened by Step 5.
+#: Index 0 is level 1.
+#:
+#: ``close_apps`` and ``fullscreen_control`` were added for the Hands layer.
+#: Both ask at every level, and both are here rather than in the config alone so
+#: that adding either one to the config is a test failure until this file says
+#: so too. Closing an application can lose unsaved work, and input into a game
+#: or a presentation is not the same act as input into a text field; neither
+#: deserves a level at which it becomes silent.
+#:
+#: ``manage_models`` was added for the Hypothalamus in Step 6. It auto-approves
+#: from level 3 for the same reason ``mouse_keyboard`` does: swapping the model
+#: the user is already talking to is routine operator work once the trust level
+#: says the operator is in charge. It asks at levels 1 and 2, where evicting a
+#: model someone chose by hand is not the assistant's call.
+APPROVED_MATRIX: Dict[str, tuple] = {
+    "chat": (AUTO, AUTO, AUTO, AUTO, AUTO),
+    "read_files": (ASK, AUTO, AUTO, AUTO, AUTO),
+    "open_apps": (ASK, AUTO, AUTO, AUTO, AUTO),
+    "close_apps": (ASK, ASK, ASK, ASK, ASK),
+    "fullscreen_control": (ASK, ASK, ASK, ASK, ASK),
+    "mouse_keyboard": (ASK, ASK, AUTO, AUTO, AUTO),
+    "run_safe_commands": (ASK, ASK, AUTO, AUTO, AUTO),
+    "write_files": (ASK, AUTO, AUTO, AUTO, AUTO),
+    "browse": (ASK, ASK, ASK, AUTO, AUTO),
+    "run_python": (ASK, ASK, ASK, ASK, AUTO),
+    "modify_plugins": (ASK, ASK, ASK, ASK, AUTO),
+    "delete_files": (ASK, ASK, ASK, ASK, ASK),
+    "install_software": (ASK, ASK, ASK, ASK, ASK),
+    "send_messages": (ASK, ASK, ASK, ASK, ASK),
+    "run_admin": (ASK, ASK, ASK, ASK, ASK),
+    "access_credentials": (ASK, ASK, ASK, ASK, ASK),
+    "delete_os_files": (BLOCKED, BLOCKED, BLOCKED, BLOCKED, BLOCKED),
+    "share_data": (BLOCKED, BLOCKED, BLOCKED, BLOCKED, BLOCKED),
+    "disable_safety": (BLOCKED, BLOCKED, BLOCKED, BLOCKED, BLOCKED),
+    "manage_models": (ASK, ASK, AUTO, AUTO, AUTO),
+}
+
+
+@pytest.fixture
+def gate() -> PermissionGate:
+    """Return a gate reading the real permission matrix."""
+    return PermissionGate()
+
+
+@pytest.mark.parametrize("category,expected", sorted(APPROVED_MATRIX.items()))
+def test_trust_matrix_matches_the_approved_spec(
+    gate: PermissionGate, category: str, expected: tuple
+) -> None:
+    """Every cell of the approved matrix holds."""
+    action = Action(category=category_of(category))
+    for index, level in enumerate(ALL_LEVELS):
+        decision = gate.decide(action, level)
+        assert decision.decision == expected[index], (
+            f"{category} at level {level}: expected {expected[index]}, got {decision.decision}"
+        )
+
+
+def test_matrix_file_and_test_agree(gate: PermissionGate) -> None:
+    """The config file and the approved spec describe the same permissions."""
+    assert set(gate.matrix.actions) == set(APPROVED_MATRIX)
+    for category, expected in APPROVED_MATRIX.items():
+        row = gate.row_for(category_of(category))
+        assert tuple(row[str(level)] for level in ALL_LEVELS) == expected
+
+
+def test_unknown_category_is_not_auto_approved(gate: PermissionGate) -> None:
+    """A category missing from the matrix asks rather than assuming permission."""
+    unlisted = Action(category="launch_missiles", target="everything")  # type: ignore[arg-type]
+    assert gate.matrix_decision(unlisted.category, 5) == ASK
+    assert gate.decide(unlisted, 5).requires_confirmation
+
+
+def test_every_category_has_a_matrix_row() -> None:
+    """Every declared category is configured, so none silently asks forever."""
+    matrix = TrustMatrix()
+    missing = [str(c) for c in ActionCategory if not matrix.is_known(c)]
+    assert missing == []
+
+
+def test_permissions_never_widen_with_level(gate: PermissionGate) -> None:
+    """Raising the trust level may only ever add permission, never remove it."""
+    order = {BLOCKED: 0, ASK: 1, AUTO: 2}
+    for category in ActionCategory:
+        previous = -1
+        for level in ALL_LEVELS:
+            current = order[gate.matrix_decision(category, level)]
+            assert current >= previous, f"{category} narrowed at level {level}"
+            previous = current
+
+
+def test_unknown_levels_are_clamped(gate: PermissionGate) -> None:
+    """A bogus level resolves inside 1-5, never outside the supported range."""
+    assert gate.decide(Action(category=ActionCategory.RUN_PYTHON), 0).trust_level == 1
+    assert gate.decide(Action(category=ActionCategory.RUN_PYTHON), 99).trust_level == 5
+
+
+def test_policy_defaults_are_the_approved_ones() -> None:
+    """The temp-deletion threshold and write policy match the decisions."""
+    matrix = TrustMatrix()
+    assert matrix.delete_temp_auto_from_level() == 3
+    assert matrix.blocks_protected_writes() is True
+    assert matrix.default_level() == 1
