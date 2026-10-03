@@ -26,6 +26,17 @@ class CerebrumError(BackendError):
     """Raised when no reasoning backend can produce an answer."""
 
 
+class InferenceRefused(CerebrumError):
+    """Raised when the machine is not allowed to run inference at all.
+
+    A subclass, so every existing ``except CerebrumError`` still catches it and
+    nothing that handled the old behaviour breaks. It exists so a refusal can be
+    told apart from a backend failure: an unreachable Ollama is a 503 and the
+    caller should retry, while a stop is a 409 and retrying is exactly wrong. The
+    two are the same class to everyone who only cares that no answer came back.
+    """
+
+
 async def call_local(
     model: str,
     messages: List[Dict[str, str]],

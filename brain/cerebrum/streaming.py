@@ -19,12 +19,20 @@ from core.config import model_for_level, provider_for_level, timeout_for_level
 class CerebrumStreaming:
     """Streaming mixin for the Cerebrum.
 
-    Expects the host class to provide ``history``, ``history_limit``,
-    ``bridge``, ``last_provider``, ``remember`` and the model config helpers.
-    """
+Expects the host class to provide ``history``, ``history_limit``, ``bridge``,
+``last_provider``, ``remember``, ``_check_may_infer`` and the model config
+helpers.
+"""
 
     async def stream(self, message: str, level: int = 1) -> AsyncIterator[str]:
         """Stream a reply token by token.
+
+        Yields each fragment as it arrives rather than collecting the whole reply
+        first. Collecting and returning made this an ordinary coroutine that
+        yielded nothing, so ``async for`` over it raised ``TypeError`` — meaning
+        the chat UI's own streaming path, the one most requests actually take,
+        could not work at all. The conversation is still recorded once the
+        stream ends, so history holds the complete answer.
 
         Args:
             message: The user message.
@@ -34,15 +42,26 @@ class CerebrumStreaming:
             Text fragments.
 
         Raises:
+            InferenceRefused: If the kill switch is engaged or a rule forbids
+                inference.
             CerebrumError: If the selected backend fails.
         """
+        # The same backstop the non-streaming paths carry. Checked here rather
+        # than only in the Router, because the Cerebrum is directly reachable and
+        # this is the path the chat UI actually uses — a stop that the streaming
+        # route ignored would leave the machine still answering.
+        self._check_may_infer(message, level)  # type: ignore[attr-defined]
         messages = build_messages(message, self.history, None, self.history_limit)  # type: ignore[attr-defined]
         collected: List[str] = []
 
         if provider_for_level(level) == "cloud":
-            collected = [fragment async for fragment in self._stream_cloud(messages, level)]  # type: ignore[attr-defined]
+            source = self._stream_cloud(messages, level)  # type: ignore[attr-defined]
         else:
-            collected = [fragment async for fragment in self._stream_local(message, messages, level)]  # type: ignore[attr-defined]
+            source = self._stream_local(message, messages, level)  # type: ignore[attr-defined]
+
+        async for fragment in source:
+            collected.append(fragment)
+            yield fragment
 
         self.remember("user", message)  # type: ignore[attr-defined]
         self.remember("assistant", "".join(collected))  # type: ignore[attr-defined]

@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, AsyncIterator, Dict, Optional
 
 from brain.brainstem.activity_logger import get_logger
-from brain.cerebrum.cerebrum import Cerebrum, CerebrumError
+from brain.cerebrum.cerebrum import Cerebrum, CerebrumError, InferenceRefused
 from brain.thalamus.complexity_analyzer import ComplexityAnalyzer
 from brain.thalamus.load_balancer import LoadBalancer
 
@@ -160,6 +160,14 @@ class Router:
                     errors=errors,
                 )
                 return result
+            except InferenceRefused:
+                # A refusal is not a backend failure, so the ladder must not walk.
+                # Retrying here would ask a stopped machine for an answer once
+                # per level, and would then report the result as "all backends
+                # failed" — telling the caller to try again, which is the opposite
+                # of what a stop means. Rethrown untouched so the route can
+                # answer 409.
+                raise
             except CerebrumError as exc:
                 errors.append(f"level {level}: {exc}")
                 self.logger.log("thalamus", "backend_failure", level=level, error=str(exc))
@@ -277,6 +285,24 @@ class Router:
         if plan["route"] == "local":
             return ""
         return f"{plan['reason']}: not attempting local inference"
+
+    def check_level_allowed(self, level: int) -> str:
+        """Return why a level may not be attempted right now, or an empty string.
+
+        The public form of the check the routing paths use internally, so a caller
+        that honours an explicitly requested level — rather than choosing one —
+        can ask the same question the router would have asked. Without this, a
+        caller holding a Cerebrum and a level could reach local inference having
+        consulted nothing but the kill switch: the Cerebrum knows about stopping,
+        not about whether the machine can afford the work.
+
+        Args:
+            level: The routing level about to be used.
+
+        Returns:
+            The reason it is refused, or an empty string when it is allowed.
+        """
+        return self._resource_block(level)
 
     def _fallback_order(self, level: int, internet_available: bool) -> list[int]:
         """Build the list of levels to try, best first.

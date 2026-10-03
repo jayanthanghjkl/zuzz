@@ -149,28 +149,77 @@ async def watchdog_status(request: Request) -> Dict[str, Any]:
 async def configure_watchdog(request: Request, thresholds: Dict[str, Any]) -> Dict[str, Any]:
     """Adjust the watchdog's thresholds.
 
+    **Tightening a threshold is always allowed; loosening one needs permission
+    that no trust level grants.** Every limit here is an upper bound the watchdog
+    trips at — ``deletions >= deletion_limit`` — so a larger number means the
+    signal fires later or never. That is disarming the only thing watching for
+    runaway behaviour, and it used to be a single unauthenticated POST away.
+
+    The asymmetry is deliberate. Making the watchdog stricter cannot reduce
+    safety, so it needs no permission and needs no dialog. Making it laxer is
+    ``disable_safety``, which the trust matrix blocks at every level including
+    five: there is no trust level at which "turn the watchdog off" is allowed.
+
+    Only three of the seven limits are tunable. The click, keystroke, app-open and
+    blocked-hotkey limits are fixed in code, so they cannot be reached from here
+    at all.
+
     Args:
-        request: Used to reach the watchdog.
+        request: Used to reach the watchdog and the shared gate.
         thresholds: Any of ``cpu_percent``, ``cpu_streak_limit``, ``deletion_limit``.
 
     Returns:
         The watchdog's current configuration.
 
     Raises:
-        HTTPException: 400 when a threshold is not usable.
+        HTTPException: 400 when a threshold is not usable or would weaken a
+            signal, 403 when weakening was refused.
     """
+    from brain.prefrontal_cortex.action import Action, ActionCategory
+    from brain.prefrontal_cortex.permission_gate import PermissionGate
+
     watchdog: Watchdog = request.app.state.watchdog
+    gate = PermissionGate(kill_switch=request.app.state.kill_switch)
+    level = request.app.state.trust.current()
+
     for key in ("cpu_percent", "cpu_streak_limit", "deletion_limit"):
         if key not in thresholds:
             continue
         value = float(thresholds[key])
         if value < 0:
             raise HTTPException(status_code=400, detail=f"{key} must not be negative")
+        # A limit of zero is degenerate: the signal fires on every poll because
+        # any count is >= 0. That is a self-inflicted denial of service rather
+        # than a safety gain, so it is not "tightening".
+        if value == 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{key}=0 would fire on every check; use 1 for the strictest setting",
+            )
+        current = float(getattr(watchdog, key))
+        if value > current:
+            decision = gate.decide(
+                Action(category=ActionCategory.DISABLE_SAFETY, target=key),
+                level,
+            )
+            if not decision.allowed:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        f"{key} can only be tightened here; loosening it from "
+                        f"{current:g} to {value:g} is refused — {decision.reason}"
+                    ),
+                )
         setattr(watchdog, key, int(value) if key != "cpu_percent" else value)
+
     return {
         "cpu_percent": watchdog.cpu_percent,
         "cpu_streak_limit": watchdog.cpu_streak_limit,
         "deletion_limit": watchdog.deletion_limit,
         "pids": watchdog.pids,
         "trips": watchdog.trips,
+        "policy": (
+            "thresholds may only be tightened; loosening requires disable_safety, "
+            "which is blocked at every trust level"
+        ),
     }

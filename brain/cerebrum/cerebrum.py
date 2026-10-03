@@ -19,15 +19,19 @@ from brain.cerebrum.backends import (
     CerebrumError,
     call_litellm,
     call_local,
+    InferenceRefused,
 )
 from brain.cerebrum.prompts import build_messages
 from brain.cerebrum.reasoning import estimate_confidence, list_local_models
 from brain.cerebrum.streaming import CerebrumStreaming
 from brain.corpus_callosum.cloud_bridge import get_bridge
 from brain.corpus_callosum.connector_state import ConnectorError
+from brain.prefrontal_cortex.action import Action, ActionCategory
+from brain.prefrontal_cortex.permission_gate import PermissionGate
+from brain.prefrontal_cortex.trust_manager import TrustManager
 from core.config import model_for_level, provider_for_level, timeout_for_level
 
-__all__ = ["Cerebrum", "CerebrumError"]
+__all__ = ["Cerebrum", "CerebrumError", "InferenceRefused"]
 
 
 class Cerebrum(CerebrumStreaming):
@@ -39,17 +43,86 @@ class Cerebrum(CerebrumStreaming):
         last_provider: Provider that produced the most recent reply.
     """
 
-    def __init__(self, history_limit: int = 20) -> None:
+    def __init__(
+        self,
+        history_limit: int = 20,
+        gate: Optional[PermissionGate] = None,
+        trust_level: Optional[int] = None,
+    ) -> None:
         """Initialise the engine.
 
         Args:
             history_limit: Maximum conversation messages kept in memory.
+            gate: The Prefrontal gate consulted before any inference, or None to
+                use the shared one. Injection rather than construction so the
+                Cerebrum is never holding a *second* gate with its own reading of
+                the matrix — one gate, one answer, as with the Hypothalamus.
+            trust_level: Trust level used for those decisions, or None to read the
+                shared trust manager at call time. Read per call rather than
+                captured at construction so a trust change takes effect on the
+                next request instead of the next restart.
         """
         self.history: List[Dict[str, str]] = []
         self.history_limit = history_limit
         self.bridge = get_bridge()
         self.last_provider = ""
         self.logger = get_logger()
+        self.gate = gate if gate is not None else PermissionGate()
+        self._trust_level = trust_level
+
+    def _current_trust(self) -> int:
+        """Return the trust level to decide against.
+
+        The injected level wins when given, which is how tests pin it. Otherwise a
+        manager is built per call, which is cheap and correct rather than a
+        cached value that would go stale: ``TrustManager.current`` re-reads the
+        persisted level every time, so a level the operator changed mid-session is
+        honoured on the very next request.
+        """
+        if self._trust_level is not None:
+            return self._trust_level
+        try:
+            return int(TrustManager().current())
+        except Exception:
+            # A trust level that cannot be read must not make every answer fail.
+            # Level 1 is the only level that cannot surprise the user.
+            return 1
+
+    def _check_may_infer(self, message: str, level: int) -> None:
+        """Refuse to run inference the machine has not authorised.
+
+        The kill switch is the reason this exists. Every other route into ZUZZ
+        passes the gate on the way to the Body layer, but the Cerebrum is
+        reachable directly — any caller holding a reference, including future code
+        and a plugin — and inference was the one thing that answered regardless
+        of what the switch said. A stop that does not stop the machine's voice is
+        not a stop.
+
+        Nothing about ordinary chat is asked for: ``chat`` is ``auto`` at every
+        trust level, because generating an answer is not a side effect. What this
+        buys is the switch, and the immutable rules that no trust level reaches.
+
+        Args:
+            message: The user message, used as the action's target.
+            level: Routing level, recorded for the audit trail.
+
+        Raises:
+            InferenceRefused: If the kill switch is engaged or a rule forbids
+                inference.
+        """
+        reason = self.gate.stopped_reason()
+        if reason:
+            raise InferenceRefused(f"Inference refused — {reason}")
+        action = Action(
+            category=ActionCategory.CHAT,
+            target=message,
+            detail={"level": level},
+        )
+        decision = self.gate.decide(action, self._current_trust())
+        if not getattr(decision, "allowed", True):
+            raise InferenceRefused(
+                f"Inference refused — {getattr(decision, 'reason', 'gate refused')}"
+            )
 
     def reset(self) -> None:
         """Clear the in-memory conversation history."""
@@ -80,8 +153,11 @@ class Cerebrum(CerebrumStreaming):
             The generated reply.
 
         Raises:
+            InferenceRefused: If the kill switch is engaged or a rule forbids
+                inference.
             CerebrumError: If Ollama is unreachable or returns nothing usable.
         """
+        self._check_may_infer(message, level)
         model = model_for_level(level) or DEFAULT_LOCAL_MODEL
         messages = build_messages(message, self.history, context, self.history_limit)
         try:
@@ -110,8 +186,11 @@ class Cerebrum(CerebrumStreaming):
             The generated reply.
 
         Raises:
+            InferenceRefused: If the kill switch is engaged or a rule forbids
+                inference.
             CerebrumError: If every cloud path fails.
         """
+        self._check_may_infer(message, level)
         messages = build_messages(message, self.history, context, self.history_limit)
         try:
             result = await self.bridge.chat(messages, timeout=timeout_for_level(level))

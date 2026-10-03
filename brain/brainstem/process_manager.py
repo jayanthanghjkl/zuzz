@@ -47,6 +47,23 @@ class ProcessManager:
         """List models Ollama has downloaded."""
         return await list_local_models()
 
+    async def mark_loaded(self, model: str) -> None:
+        """Record that a model is now resident, starting its idle clock.
+
+        The idle clock has to start when the model *arrives*, and only the code
+        that loads it knows that. This existed implicitly — the reaper read
+        ``_loaded_at`` and nothing ever wrote it, so the sweep had nothing to
+        consider and the dashboard had nothing to show.
+
+        Safe to call repeatedly: a re-load resets the clock, which is the correct
+        behaviour, because the model was genuinely evicted and fetched again.
+
+        Args:
+            model: Ollama model name.
+        """
+        if model:
+            self._loaded_at[model] = time.time()
+
     async def unload(self, model: str, keep_alive: int = 0) -> bool:
         """Unload one model from VRAM.
 
@@ -119,12 +136,36 @@ class ProcessManager:
                 continue
 
     def status(self) -> Dict[str, Any]:
-        """Return model bookkeeping for the dashboard."""
+        """Return model bookkeeping for the dashboard.
+
+        Reads the model manager when one is attached rather than a second copy of
+        the state held here. Two dictionaries tracking the same models is a
+        design that guarantees they disagree, and until this was fixed the local
+        one was never written at all — so the dashboard reported an empty machine
+        while two models sat in VRAM. When nothing is attached there is nothing
+        to report, which is the honest answer rather than a fabricated empty set.
+        """
         now = time.time()
+        if self.hypothalamus is not None:
+            entries = self.hypothalamus.models.loaded_models()
+            return {
+                "unload_after_seconds": self.unload_after,
+                "resident": list(self._keep_resident),
+                "loaded": {
+                    entry["model"]: {
+                        "idle_seconds": entry["idle_seconds"],
+                        "vram_mb": entry["vram_mb"],
+                        "priority": entry["priority"],
+                    }
+                    for entry in entries
+                },
+                "source": "model_manager",
+            }
         return {
             "unload_after_seconds": self.unload_after,
             "resident": list(self._keep_resident),
             "loaded": {
                 model: {"idle_seconds": round(now - ts)} for model, ts in self._loaded_at.items()
             },
+            "source": "local",
         }

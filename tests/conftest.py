@@ -82,4 +82,17 @@ def kill_switch_app(tmp_path: Path):
     )
     app.state.watchdog = Watchdog(switch, scope=app.state.stop_scope)
     app.state.thalamus.cerebrum.bridge.kill_switch = switch
+    # Every gate in the app was built in create_app holding the *original*
+    # switch, so replacing app.state.kill_switch alone would leave the gates
+    # consulting a switch this test cannot engage — and a test that asserts a
+    # refusal while the gate still points at a live switch proves nothing. All of
+    # them are re-pointed at the isolated one, which is what makes "the stop
+    # works" a claim about the code rather than about the fixture.
+    for gate in (
+        app.state.permission_gate,
+        app.state.hypothalamus.models.gate,
+        app.state.thalamus.cerebrum.gate,
+    ):
+        if gate is not None:
+            gate.kill_switch = switch
     return app

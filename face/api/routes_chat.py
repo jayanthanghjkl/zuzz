@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-from brain.cerebrum.cerebrum import CerebrumError
+from brain.cerebrum.cerebrum import CerebrumError, InferenceRefused
 
 router = APIRouter()
 
@@ -61,7 +61,8 @@ async def chat(payload: ChatRequest, request: Request) -> Dict[str, Any]:
         The answer plus routing metadata.
 
     Raises:
-        HTTPException: 400 for an empty message, 503 when all backends fail.
+        HTTPException: 400 for an empty message, 409 when the machine is stopped
+            or the requested level cannot run, 503 when all backends fail.
     """
     thalamus = request.app.state.thalamus
     message = payload.message.strip()
@@ -69,10 +70,34 @@ async def chat(payload: ChatRequest, request: Request) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     try:
         if payload.level is not None:
+            # A forced level skips the routing ladder, so the resource check the
+            # ladder would have made has to be made here. Without it, asking for
+            # level 1 explicitly was a way to reach local inference on a machine
+            # that was too hot or out of VRAM — the same bypass the automatic path
+            # closes, reachable by naming the level instead.
+            #
+            # Refused rather than quietly rerouted. The caller named a level, so
+            # honouring it by sending the question somewhere else — to a cloud
+            # provider — would answer a different request than the one made,
+            # without saying so.
+            blocked = thalamus.check_level_allowed(payload.level)
+            if blocked:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"level {payload.level} was requested but cannot run now — "
+                        f"{blocked}. Omit `level` to let ZUZZ choose."
+                    ),
+                )
             result = await thalamus.cerebrum.think(message, payload.level)
             result.update({"reason": "forced level", "degraded": False})
         else:
             result = await thalamus.route(message, await internet_available())
+    except InferenceRefused as exc:
+        # 409, the same code every other route uses for an engaged switch. Not
+        # 503: a backend that is merely unreachable is worth retrying, and
+        # inviting a retry while the machine is stopped is the wrong advice.
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except CerebrumError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return result
@@ -115,6 +140,13 @@ async def websocket_chat(websocket: WebSocket) -> None:
             try:
                 async for event in thalamus.route_stream(message, await internet_available()):
                     await websocket.send_json(event)
+            except InferenceRefused as exc:
+                # Named apart from a backend failure so the UI can say "the
+                # machine is stopped" rather than "something went wrong", and
+                # offer a reset instead of a retry.
+                await websocket.send_json(
+                    {"type": "refused", "content": str(exc), "status": 409}
+                )
             except CerebrumError as exc:
                 await websocket.send_json({"type": "error", "content": str(exc)})
     except WebSocketDisconnect:

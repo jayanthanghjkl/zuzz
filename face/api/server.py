@@ -177,6 +177,11 @@ def create_app() -> FastAPI:
     # The idle reaper now asks the budget before it unloads, so a model is only
     # evicted when the space is actually needed.
     app.state.process_manager.hypothalamus = app.state.hypothalamus
+    # The Cerebrum decides for itself whether it may run at all, so that a caller
+    # holding one directly — the Router, a future caller, a plugin — cannot reach
+    # inference without the switch and the gate being consulted. Given the app's
+    # own gate, so the answer is the same answer the rest of the system gives.
+    app.state.thalamus.cerebrum.gate = app.state.permission_gate
     # Decide once whether the VRAM figures are measured or estimated, and label
     # them before anything is loaded against them.
     app.state.hypothalamus.calibrate()

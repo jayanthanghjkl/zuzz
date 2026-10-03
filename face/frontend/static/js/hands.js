@@ -261,9 +261,18 @@
   }
 
   async function pollStop() {
-    const result = await get("/api/kill-switch/status");
+    // The route is `/api/kill-switch`, not `/api/kill-switch/status`. The suffix
+    // was never a route, so this 404'd and the stop state never showed — the
+    // Emergency Stop button on this tab appeared to do nothing.
+    const result = await get("/api/kill-switch");
     if (result.status === 200) {
       blocked(result.data.engaged ? "stop" : "");
+    } else {
+      // Fail closed. An unreadable switch is reported as engaged rather than as
+      // running, because a false "running" indicator is the direction that hurts:
+      // the server enforces the real stop either way, so the cost of guessing
+      // wrong here is an unusable tab that clears on the next poll.
+      blocked("stop");
     }
   }
 
@@ -387,9 +396,13 @@
     });
 
     on("stop-btn", async function () {
-      const result = await post("/api/kill-switch/trigger", {
+      // `trigger` was never a route either — the real one is `stop`. So the
+      // Emergency Stop button on this tab was posting into a 404 and the machine
+      // was never actually stopped. `confirmed` is not part of the request body;
+      // triggering deliberately needs no confirmation.
+      const result = await post("/api/kill-switch/stop", {
         reason: "pressed in the Desktop tab",
-        confirmed: true,
+        source: "ui",
       });
       if (result.status === 200) {
         blocked("stop");
