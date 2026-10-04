@@ -421,13 +421,15 @@ Action                  Lvl1  Lvl2  Lvl3  Lvl4  Lvl5
 Chat/answer              ✅    ✅    ✅    ✅    ✅
 Read files               ❓    ✅    ✅    ✅    ✅
 Open apps                ❓    ✅    ✅    ✅    ✅
+Close apps               ❓    ❓    ❓    ❓    ❓
+Fullscreen control       ❓    ❓    ❓    ❓    ❓
 Mouse/keyboard           ❓    ❓    ✅    ✅    ✅
 Run safe commands        ❓    ❓    ✅    ✅    ✅
-Write new files          ❓    ❓    ❓    ✅    ✅
+Write new files          ❓    ✅    ✅    ✅    ✅
 Browse internet          ❓    ❓    ❓    ✅    ✅
 Run Python code          ❓    ❓    ❓    ❓    ✅
 Modify own plugins       ❓    ❓    ❓    ❓    ✅
-Delete user files        ❓    ❓    ❓    ❓    ❓*
+Delete user files        ❓    ❓    ❓    ❓    ❓
 Install software         ❓    ❓    ❓    ❓    ❓
 Send emails/messages     ❓    ❓    ❓    ❓    ❓
 Run as admin             ❓    ❓    ❓    ❓    ❓
@@ -435,9 +437,11 @@ Access passwords         ❓    ❓    ❓    ❓    ❓
 Delete OS files          🚫   🚫   🚫   🚫   🚫
 Share data externally    🚫   🚫   🚫   🚫   🚫
 Disable safety           🚫   🚫   🚫   🚫   🚫
+Manage models            ❓    ❓    ✅    ✅    ✅
 
 ✅ = Auto-approve  ❓ = Ask user  🚫 = ALWAYS BLOCKED
 * Delete checks file priority before asking
+* Config: config/trust_levels.json (20 action categories, 5 trust levels)
 
 ### Kill Switch
 - Hotkey: Ctrl+Shift+Q
