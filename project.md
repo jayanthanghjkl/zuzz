@@ -883,6 +883,8 @@ ngrok            (auth token)            Free, random URL
 * [x] **CLOUD PATH VERIFIED LIVE** against real Groq and Colab accounts
 * [x] `core/` shared layer approved, documented in section 14 and section 17
 * [x] Project root path change approved (was C:\ZUZZ, now web\zuzz-assistant)
+* [x] **AGENT ACTION LOOP LIVE** — a chat reply can now make ZUZZ *do* something,
+  not only say something. See "Agent Action Loop Status" below.
 
 ### Phase 1 Status
 
@@ -928,6 +930,57 @@ APPROVED and building, four steps in.
 Decisions are recorded in docs/PHASE_2_PLAN.md section 14, and the Body layer
 pattern in docs/ARCHITECTURE.md section 8.
 
+### Agent Action Loop Status
+
+LIVE, verified on this machine 2026-10-04. ZUZZ executes **15 tools** from a chat
+reply, every one of them through the same gate the Desktop and Files tabs use.
+
+The pipeline, per action, in this order — and the order is the safety property:
+
+1. **Parse.** `brain/cerebrum/action_parser.py` splits the reply into prose and
+   `ToolCall` objects. A block that will not parse becomes a visible `errors`
+   entry, never silence.
+2. **Resolve.** `ToolSpec.resolve` runs *before* the gate, so the gate judges
+   `chrome.exe` rather than `chrome`. An alias cannot be re-pointed at something
+   else between the decision and the launch.
+3. **Assess.** The Amygdala scores the resolved action. `forbidden` vetoes;
+   `dangerous` forces a confirmation.
+4. **Decide.** The gate decides at the current trust level. blocked / ask / auto.
+5. **Confirm.** An `ask` parks the call and returns a single-use
+   `confirmation_id`. Nothing executes.
+6. **Execute.** `ToolSpec.execute` is called with an allowed decision and with
+   nothing else.
+7. **Report.** `executed` / `blocked` / `pending` / `errors` / `warnings` /
+   `summary`.
+
+**Endpoints.** `POST /api/chat` returns `{response, actions:{...}}` with every
+action fence stripped from `response`. `POST /api/chat/confirm` takes
+`{confirmation_id, approval}` and returns the execution result — re-deciding from
+scratch first, so a stop that landed while the popup was open still blocks and a
+replayed id finds nothing. The WebSocket streams tokens, emits `done`, then emits
+`actions` carrying the authoritative prose and the badges.
+
+**The 15 tools.** `mouse_click`, `mouse_move`, `mouse_scroll`, `keyboard_type`,
+`keyboard_hotkey`, `clipboard_read`, `clipboard_write`, `open_app`, `close_app`,
+`file_read`, `file_write`, `file_delete`, `file_list`, `file_search`,
+`get_system_resources`.
+
+**Live verification (2026-10-04, trust level 3):**
+
+| Scenario | Result |
+|---|---|
+| "Open Notepad" | Notepad launched, pid 4080. Prose clean, fence stripped. |
+| Write `hello.txt` to Desktop | File created, content `ZUZZ works`. |
+| "Delete C:\Windows" | Refused. Model declined in prose *and* immutable rule R1 blocked the forced block. |
+| "What is 2+2?" | Pure chat, empty action envelope. |
+
+**Known gap.** `core/paths.py` classifies a bare volume root (`C:\`) as `safe`,
+because `PROTECTED_PREFIXES` lists `C:\Windows` and not the root. A delete of
+`C:\` therefore parks for approval instead of being refused outright. It fails
+safe — `delete_files` asks at every trust level, and `TrashManager` physically
+cannot move a volume root into itself — but the prompt is unnecessary. Worth
+adding the drive roots to `PROTECTED_PREFIXES`.
+
 
 ### Next Step
 
@@ -950,6 +1003,9 @@ pattern in docs/ARCHITECTURE.md section 8.
 ### Not Started
 
 * [ ] Phase 2-10 (see Build Phases above)
+* [ ] Agent Action Loop: drive-root protection (add volume roots to
+      `core/paths.PROTECTED_PREFIXES`), and stop the identity line teaching the
+      model to invent a username in a path — see the Session 12 changelog entry
 
 ```
 * [x] Local Ollama path VERIFIED LIVE — both models answering, routing L1 to 1.5B and L2 to 3B

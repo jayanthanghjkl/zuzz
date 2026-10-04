@@ -18,8 +18,34 @@
 
   const chat = new ChatLog(logElement);
   let activeBubble = null;
+  let finishedBubble = null;
   let startedAt = 0;
   let stopped = false;
+
+  /* Answer a confirmation and settle the row the user clicked. The outcome —
+     executed, or blocked again by a fresh decision — replaces the buttons, so a
+     re-block after approval is visible rather than silent. */
+  function answerConfirmation(node, confirmationId, approval) {
+    postConfirmation(confirmationId, approval).then((outcome) => {
+      if (!outcome.ok) {
+        ConfirmationPopup.resolve(node, {
+          status: "error",
+          reason: (outcome.data && outcome.data.detail) || "the approval could not be sent"
+        });
+        return;
+      }
+      const actions = outcome.data || {};
+      const settled = (actions.executed || [])[0] || (actions.blocked || [])[0] ||
+        (actions.errors || [])[0] || { status: approval ? "executed" : "declined" };
+      ConfirmationPopup.resolve(node, settled);
+      const summary = document.createElement("div");
+      summary.className = "action-summary";
+      summary.textContent = actions.summary || "";
+      if (summary.textContent) {
+        node.actions.appendChild(summary);
+      }
+    });
+  }
 
   const socket = new BrainSocket({
     status: onSocketStatus,
@@ -68,7 +94,32 @@
       });
       levelBadge.textContent = "L" + event.level;
       hint.textContent = event.reason || "Streaming via WebSocket";
+      if (activeBubble) {
+        /* Held rather than cleared: the actions event arrives next and needs the
+           same bubble to hang its badges off. */
+        finishedBubble = activeBubble;
+      }
+      setBusy(false);
+    } else if (event.type === "actions") {
+      const node = activeBubble || finishedBubble || chat.addBot();
+      if (typeof event.prose === "string") {
+        chat.setProse(node, event.prose);
+      }
+      chat.addActions(node, event, (id, approval) =>
+        answerConfirmation(node, id, approval)
+      );
+      if (event.summary) {
+        hint.textContent = event.summary;
+      }
+      finishedBubble = null;
+    } else if (event.type === "refused") {
+      chat.addError(
+        (event.content || "ZUZZ is stopped") +
+          " — type RESET in the stop panel to restart it."
+      );
+      hint.textContent = "Stopped";
       activeBubble = null;
+      finishedBubble = null;
       setBusy(false);
     } else if (event.type === "error") {
       if (activeBubble) {
@@ -77,6 +128,7 @@
       } else {
         chat.addError(event.content);
       }
+      finishedBubble = null;
       hint.textContent = "Error: " + event.content;
       setBusy(false);
     }
@@ -106,6 +158,7 @@
     autoGrow();
     startedAt = performance.now();
     activeBubble = chat.addBot();
+    finishedBubble = null;
 
     if (!socket.isOpen()) {
       hint.textContent = "Waiting for connection...";

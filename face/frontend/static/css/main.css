@@ -395,3 +395,143 @@ body {
 .hidden {
   display: none;
 }
+
+/* ---------------------------------------------------------------------
+   Action rail.
+
+   An action is something ZUZZ did, not something it said, so it is rendered
+   outside the speech bubble in its own rail with a coloured left edge. The
+   colour is the status and nothing else: green ran, amber is waiting on the
+   user, red was refused, orange failed. No icon carries meaning on its own.
+   --------------------------------------------------------------------- */
+
+.action-rail:empty {
+  display: none;
+}
+
+.action-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 2px;
+}
+
+.action-badge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.action-executed {
+  border-left-color: var(--ok);
+}
+
+.action-pending,
+.action-awaiting {
+  border-left-color: var(--warn);
+  background: #221c10;
+}
+
+.action-blocked,
+.action-declined {
+  border-left-color: var(--err);
+  background: #241414;
+}
+
+.action-error {
+  border-left-color: #db6d28;
+  background: #241a10;
+}
+
+.action-warn-only {
+  border-left-color: var(--warn);
+  color: var(--muted);
+}
+
+.action-mark {
+  font-size: 13px;
+}
+
+.action-name {
+  font-family: Consolas, monospace;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.action-detail {
+  font-family: Consolas, monospace;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.action-state {
+  margin-left: auto;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.action-reason,
+.action-warn,
+.action-err {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.action-err {
+  color: var(--err);
+}
+
+.action-warn {
+  color: var(--warn);
+}
+
+.action-summary {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.confirm-box {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.confirm-yes,
+.confirm-no {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.confirm-yes:hover:not(:disabled) {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.confirm-no:hover:not(:disabled) {
+  border-color: var(--err);
+  color: var(--err);
+}
+
+.confirm-yes:disabled,
+.confirm-no:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

@@ -2,18 +2,28 @@
 
 Builds the system prompt from ZUZZ's personality configuration so tone and
 verbosity stay in `config/personality.json` instead of being hardcoded here.
+
+The prompt also carries the tool protocol, which is what turns ZUZZ from a
+paragraph machine into an agent that acts. The protocol is a fenced JSON block
+rather than native function calling, because it works identically on Ollama,
+on the Corpus Callosum connectors and through LiteLLM — one mechanism for every
+backend, instead of three.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from brain.cerebrum.tool_catalogue import tool_catalog
 from core.config import get_personality
 
 BASE_IDENTITY = (
     "You are ZUZZ, a personal digital brain assistant running on Jayanthan's "
-    "Windows laptop. You are direct, accurate and honest. If you are not sure "
-    "of something, say so rather than guessing."
+    "Windows laptop. You have direct control of that computer: you can launch "
+    "applications, move the mouse and keyboard, use the clipboard, and read, "
+    "write and delete files through the tools listed below. You are direct, "
+    "accurate and honest. If you are not sure of something, say so rather "
+    "than guessing."
 )
 
 SAFETY_RULES = (
@@ -22,12 +32,61 @@ SAFETY_RULES = (
     "that would harm the system or expose credentials."
 )
 
+TOOL_PROTOCOL = """\
+You can act on this computer, not only talk about it.
 
-def build_system_prompt(context: Optional[str] = None) -> str:
+When the user asks for something you can do with a tool, reply with prose
+saying what you are about to do, followed by one action block per action:
+
+```action
+{"tool": "open_app", "params": {"app_name": "chrome"}, "explanation": "Opening Chrome"}
+```
+
+Rules for action blocks:
+- Use only the tool names listed below, spelled exactly as written, and only
+  the parameters each tool declares. Do not invent parameters or options.
+- One block per action. To do several things, emit several blocks in order.
+- Emit a block only for an action the user actually asked for. Never take an
+  action on your own initiative to illustrate a point.
+- Send the block after the prose, never inside it. Prose is for the user; the
+  block is for the machine.
+- Every block executes for real. The permission system may ask the user to
+  confirm an action, and may refuse it — so do not write "done", "opened" or
+  "saved" before the result is known. Say what you are doing, then wait.
+- When several steps are needed, emit only the steps you are sure about, in
+  order. Results come back to you afterwards, so continue from there rather
+  than guessing what happened.
+- If the request needs a tool you do not have, say so plainly. Do not emit a
+  block that will not work."""
+
+#: How many action blocks a reply may contain. Matches the parser's own cap, so
+#: the model is told the rule that is actually enforced.
+MAX_ACTIONS = 5
+
+
+def build_tool_instructions() -> str:
+    """Return the tool protocol and the live catalogue.
+
+    Returns:
+        The prompt section describing how to emit an action and which tools
+        exist. Built from the schema catalogue rather than a hand-written list,
+        so a tool added in :mod:`brain.cerebrum.tools_schema` is described to
+        the model the moment it is defined.
+    """
+    return f"{TOOL_PROTOCOL}\n\n{tool_catalog()}\n\nAt most {MAX_ACTIONS} action blocks per reply."
+
+
+def build_system_prompt(
+    context: Optional[str] = None, tools: bool = True
+) -> str:
     """Compose the system prompt for a conversation.
 
     Args:
         context: Optional extra context, e.g. detected user activity.
+        tools: Whether to include the tool protocol. Defaults to True, because
+            a model that does not know it has hands will not use them. Set False
+            for a context that must not be answered with actions — the resource
+            probes ask the layer what is true, not the model.
 
     Returns:
         The full system prompt string.
@@ -38,10 +97,12 @@ def build_system_prompt(context: Optional[str] = None) -> str:
 
     parts = [
         BASE_IDENTITY,
-        f"Speaking style: {tone}. Keep replies under about {max_sentences} sentences "
-        "unless the user asks for detail.",
+        f"Speaking style: {tone}. Keep prose under about {max_sentences} sentences "
+        "unless the user asks for detail. Action blocks do not count as prose.",
         SAFETY_RULES,
     ]
+    if tools:
+        parts.append(build_tool_instructions())
     if context:
         parts.append(f"Current context: {context}")
     return "\n\n".join(parts)
@@ -74,6 +135,7 @@ def build_messages(
     history: Optional[List[Dict[str, Any]]] = None,
     context: Optional[str] = None,
     history_limit: int = 20,
+    tools: bool = True,
 ) -> List[Dict[str, str]]:
     """Assemble the full message list sent to a model.
 
@@ -82,12 +144,14 @@ def build_messages(
         history: Prior conversation, oldest-first.
         context: Optional situational context for the system prompt.
         history_limit: Maximum retained history messages.
+        tools: Whether the model is told it has tools. Defaults to True; only a
+            context that must not produce actions passes False.
 
     Returns:
         Messages ready to post to Ollama or a cloud provider.
     """
     messages: List[Dict[str, str]] = [
-        {"role": "system", "content": build_system_prompt(context)}
+        {"role": "system", "content": build_system_prompt(context, tools=tools)}
     ]
     messages.extend(
         {"role": m.get("role", "user"), "content": str(m.get("content", ""))}

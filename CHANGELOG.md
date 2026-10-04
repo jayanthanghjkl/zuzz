@@ -27,6 +27,135 @@ This file is automatically updated by the AI assistant. It tracks every change m
 
 ---
 
+## [2026-10-04] Session 12 — Agent Action Loop
+
+ZUZZ executes actions, not just chat. Fifteen tools, every one of them through the
+same Prefrontal Cortex gate the Desktop and Files tabs already used. Verified live
+on this machine.
+
+### Fixed
+
+**The action parser was dead code.** `tools_validate` imported its coercions from
+`tools_coerce` and `tools_coerce` imported `ToolParamError` back from
+`tools_validate`. Whichever was imported first raised
+`ImportError: cannot import name ... from partially initialized module`, so
+`brain/cerebrum/action_parser.py` could not be imported at all. Every one of the 15
+tools was described to the model, the prompt told it to emit action blocks, and
+not a single block could ever be parsed. The registry smoke test passed anyway
+because it never touched the parser — which is why this survived.
+
+The error type is now owned by `brain/cerebrum/tools_coercion.py`, at the bottom
+of the dependency chain, and everything else refers to it. `tools_coerce.py` is
+gone.
+
+**`file_write` did not do what its schema promised.** The tool is documented to
+the model as "creating it and any missing parent folders"; `FileManager.write`
+deliberately does not, because the Body treats `mkdir` as its own gated
+operation. Found in live verification: a model asked to write into a
+not-yet-created directory raised `FileNotFoundError`, which surfaced as
+"internal error, see the activity log". `body/tools/file_tools.py` now creates
+the parents, after `guards.resolve_target` has already approved the path, so the
+schema is true without changing the Body's contract.
+
+**`OSError` was reported as an internal error.** A missing folder or a file
+deleted between the gate and the call is a fact about the world the user can act
+on, not a defect. `ChatActionRunner._execute` now treats it as a refusal and
+shows the message.
+
+**`clipboard_tools` reached into a private method unguarded.** `context.hands.
+clipboard._read_text()` would raise `AttributeError` on any context without a
+clipboard. Now probed through a helper that refuses legibly instead.
+
+### Changed
+
+**`OSError` in the execute path** — see above.
+
+**Dropped action blocks are `errors`, not `warnings`.** They were requested actions
+that did not happen. Filing them beside "this application is not whitelisted"
+made a silently dropped tool call look like advice. `ParsedReply` gained
+`dropped: [{tool, reason}]` alongside `problems`, so the failure names the tool.
+
+**`get_system_resources` returns five readings, not fourteen.** `Hypothalamus.
+snapshot()` also returns the resource-budget arithmetic the Hypothalamus runs for
+its own scheduling; a chat answer needs RAM, VRAM, CPU, GPU and disk.
+
+**`ChatActionRunner` holds its own gate.** `app.state.permission_gate` is shared
+with the Hypothalamus for model management, and reaching it from a chat action
+would couple "may ZUZZ click this" to "may the resource layer evict a model".
+Both read the same matrix and the same kill switch, so the answers agree — but
+they are two questions.
+
+### Added
+
+| File | Lines | Contents |
+|---|---|---|
+| `face/api/chat_actions.py` | 560 | the orchestrator: parse ? resolve ? assess ? decide ? confirm ? execute ? report |
+| `tests/test_action_loop.py` | 480 | 13 tests, incl. the 12 required |
+
+**`face/api/chat_actions.py`** — one place in the codebase where a chat turn can
+touch the machine, and it is the place with the gate in it. Holds
+`ChatActionRunner`, `ActionOutcome`, and `PendingActionConfirmations` (create/pop,
+capped at 10, in-memory so a restart cannot turn an unanswered popup into an
+approval). Every action is written to the activity logger; the safety-relevant
+outcomes additionally to the audit log. Successful executions deliberately are
+not, for the reason `routes_hands` already gives — the audit log records what was
+refused and what was confirmed, and routine successes would bury both.
+
+**`POST /api/chat/confirm`** — `{confirmation_id, approval}`. Pops first, so the
+answer and the removal are one step and a replay finds nothing. Re-decides from
+scratch: a fresh resolve, a fresh Amygdala pass, a fresh gate call at the current
+trust level. A stop that landed while the popup was open still blocks, and a path
+that pointed somewhere harmless a minute ago is re-classified rather than trusted.
+
+**`POST /api/chat`** — now returns `{response, actions:{...}}`, with every action
+fence stripped from `response`.
+
+**WebSocket `actions` event** — after `done`, carrying the authoritative prose and
+the four buckets. Tokens still stream verbatim so the UI stays responsive; the
+client replaces what it streamed when the event lands, so raw JSON is on screen
+for the length of one reply and never in the scrollback. Not emitted at all for a
+conversational reply.
+
+**Frontend** — `chat.js` gained an action rail rendered *outside* the speech
+bubble, because a bubble reads as something ZUZZ said and a badge is something
+ZUZZ did. Per-status left border, inline confirmation buttons on `pending` rows,
+and a partial-fence stripper so the protocol is never visible mid-stream.
+`app.js` handles `actions` and `refused`.
+
+**Tests** — the 12 required plus one for the parent-folder bug found live.
+
+### Notes
+
+Live verification, trust level 3, `qwen3.5:4b` local:
+
+* "Open Notepad" ? Notepad launched (pid 4080). Prose clean, fence stripped.
+* Write `hello.txt` to Desktop ? created, content `ZUZZ works`.
+* "Delete C:\Windows" ? the model refused in prose, twice. Driving the gate
+  directly with a forced block: **immutable rule R1** blocked it at trust level 5.
+* "What is 2+2?" ? pure chat, empty envelope.
+
+Two things worth fixing next, both recorded in PROJECT.md section 18:
+
+* **`core/paths.py` does not protect volume roots.** `C:\` classifies as `safe`,
+  so a delete of it parks for approval rather than being refused. It fails safe —
+  `delete_files` asks at every level, and `TrashManager` cannot move a volume root
+  into itself — but the prompt is unnecessary. Add the roots to
+  `PROTECTED_PREFIXES`.
+* **The identity line teaches the model to invent a path.** `BASE_IDENTITY` says
+  "running on Jayanthan's Windows laptop". The Windows account is `jayan`, and
+  `qwen3.5:4b` read that as a directory: asked to create `hello.txt` on the
+  Desktop it emitted `C:/Users/Jayanthan/Desktop/hello.txt`. The refusal was
+  correct and legible, which is the system working — but the prompt is the cause.
+
+### Next Steps
+
+* Add drive roots to `core.paths.PROTECTED_PREFIXES`.
+* Take the account name out of `BASE_IDENTITY`, or tell the model to use a path
+  the user actually gave it.
+* `qwen2.5-coder:3b` (the default L2 model) never emits an action block. Action
+  tools need an instruct-tuned model; note this in SETUP.md.
+
+---
 ## [2026-10-03] Session 7 â€” Phase 2 Step 5: Body/Hands
 
 Desktop control behind the gate. Every public method in `body/hands/` takes a
@@ -926,5 +1055,94 @@ built what the stop actually reaches.
 - Create logical commits A-F and push to remote
 - Consider adding `AUTO` to `__all__` in `brain/prefrontal_cortex/permission_decision.py` if needed
 - Review trust matrix drift: `write_files` is "auto" at level 2 in config but "ask" in PROJECT.md
+
+---
+
+## [2026-10-04] Session 10 â€” Phase 3 Infrastructure Prep
+
+Phase 3 is approved to begin but **no Phase 3 code has been written**, pending the
+operator's live hardware verification of Phase 2. This session is environment and
+configuration preparation only.
+
+### Added
+- `config/url_allowlist.json` â€” 11 preset domains (google, duckduckgo, wikipedia,
+  github, stackoverflow, developer.mozilla.org, docs.python.org, python.org,
+  npmjs.com, huggingface.co, ollama.com) with an empty `user_added` block for UI
+  additions, `unknown_domain: ask`, and a `blocked` section covering localhost,
+  RFC1918 ranges, `169.254.169.254` (cloud metadata), and `file:`/`javascript:` schemes.
+  Also carries the approved Q3 download-quarantine policy and Q6 tab caps.
+- `config/vision_thresholds.json` â€” the four Q4 thresholds (click/form-fill 0.90,
+  information extraction 0.80, scene description 0.70, OCR 0.85), `refuse_below`
+  0.50, and the Q7 Moondream-then-Tesseract fallback ladder. Re-read per call, so
+  it is tunable without a server restart.
+- `pyautogui==0.9.54` and `cryptography==50.0.2` to `requirements.txt`.
+- Phase 3 browser/vision packages to `requirements.txt`: `playwright`,
+  `Pillow`, `mss==9.0.1`, `pytesseract==0.3.10`, `pygetwindow==0.0.9`.
+- Virtual environment at `venv/` (Python 3.13.15) with all of the above, plus the
+  Chromium and Chromium headless-shell browser builds.
+
+### Fixed
+Four independent defects in `requirements.txt`, all of which meant the file had
+**never been installable from scratch**:
+- **httpx/litellm conflict.** `httpx==0.28.1` is incompatible with
+  `litellm==1.57.4`, which requires `httpx<0.28.0`. `pip install -r requirements.txt`
+  failed with `ResolutionImpossible`. Pinned httpx to `0.27.2` instead of moving
+  litellm. All 12 httpx call sites across the codebase use only `AsyncClient(timeout=)`,
+  `get`/`post`, `HTTPError`, `TimeoutException` and `follow_redirects`, all of which
+  behave identically in 0.27.
+- **playwright uninstallable on Python 3.13.** `playwright==1.45.0` pins
+  `greenlet==3.0.3`, which predates cp313, has no wheel for it, and fails to
+  compile ("Microsoft Visual C++ 14.0 or greater is required"). Bumped to
+  `1.49.1`, the lowest release whose `greenlet==3.1.1` ships a cp313 wheel.
+- **Pillow uninstallable on Python 3.13.** `Pillow==10.4.0` has no cp313 wheel.
+  Bumped to `12.3.0`.
+- **`pyautogui` was absent entirely**, so `body/hands/actuator.py` could not
+  construct and `tests/test_hands_api.py` and `tests/test_integration.py` failed
+  at collection.
+- **`cryptography` was absent entirely**, so all 5 tests in `tests/test_api_vault.py`
+  failed with `VaultError`. This is the package that encrypts the API vault, so
+  its absence was a security-relevant gap, not just a test failure.
+
+### Changed
+- `docs/PHASE_3_PLAN.md` dependency table and install command updated to the bumped
+  versions, with a note explaining why the original pins cannot be installed.
+- `httpx` 0.28.1 -> 0.27.2.
+
+### Test Results
+- 890 passed, 2 skipped, 0 failed â€” inside the new `venv/`, matching the Session 9
+  baseline exactly.
+- Suite verified to pass in both the venv and the pre-existing system interpreter.
+
+### Notes
+- **There was no virtual environment before this session.** `venv/` existed but
+  contained only an empty `Scripts/` directory, so the documented
+  `venv\Scripts\activate` step could not have worked.
+- **`scripts/live_verify_phase2.py` requires the ZUZZ server to be RUNNING**, not
+  stopped. `check_server()` probes `/api/safety/trust` and aborts if unreachable,
+  telling the operator to start `python start.py` first. The pre-flight checklist
+  currently instructs the opposite. Confirmed working: server starts on 3.13 and
+  the endpoint returns HTTP 200 with trust level 1.
+- The live verification script has no `--dry-run` flag; it moves the real pointer
+  as soon as `execute()` is reached. It was not run in this session.
+- `CHANGELOG.md` is wrapped in leftover prompt scaffolding: it opens with a bare
+  `---`, a `### File 2: C:\ZUZZ\CHANGELOG.md` heading and an unterminated
+  ` ```markdown ` fence, and closes with a stray fence. Not repaired here to avoid
+  rewriting the whole file.
+- `storage/` runtime state is now fully ignored. Previously `storage/stop.flag` was
+  tracked by default and a `git add -A` would have committed it. `storage/logs/`
+  and `storage/memory/` were ignored as whole directories, which also meant the
+  intended `!storage/logs/.gitkeep` re-inclusion could never take effect, because
+  git does not descend into an excluded directory; they are now ignored by
+  contents (`storage/logs/*`) so the `.gitkeep` files survive and the folders
+  exist on a fresh clone. `storage/downloads/` (the Phase 3 download quarantine)
+  and `storage/sessions/` (per-domain browser cookies) are ignored too, since
+  both are specified by the Phase 3 decisions but neither was listed.
+  `git add -A --dry-run` now stages only source, config and the two `.gitkeep`
+  files.
+
+### Next Steps
+- Operator runs `scripts/live_verify_phase2.py` with the server running.
+- On a pass, Phase 2 becomes fully complete and Phase 3 Step 1 (Occipital Lobe) opens.
+- Do not start Phase 3 implementation until that report arrives.
 
 ```
