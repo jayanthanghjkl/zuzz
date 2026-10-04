@@ -28,6 +28,7 @@ internal (details logged, generic message returned).
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import Any, Callable, Dict
 
@@ -50,8 +51,9 @@ from core.audit import (
     BLOCKED,
     CONFIRMATION_GRANTED,
     CONFIRMATION_REQUESTED,
+    PRECHECK_REFUSAL,
 )
-from core.paths import normalise
+from core.paths import classify, normalise
 
 from face.api.file_confirmations import (
     build_preview,
@@ -59,6 +61,10 @@ from face.api.file_confirmations import (
 )
 
 router = APIRouter()
+
+#: Longest target written into an audit record. Long enough for any real path,
+#: short enough that a caller cannot stuff the log with megabytes.
+_MAX_TARGET_CHARS = 240
 
 
 class FileRequest(BaseModel):
@@ -254,6 +260,129 @@ def _audit(request: Request, event: str, category: str, target: str,
     )
 
 
+def _safe_target(path: str) -> str:
+    """Return a path safe to write into an append-only log.
+
+    A precheck refusal exists precisely to record the path somebody asked for, so
+    the path is not redacted away — a security review that cannot see *which* file
+    was attempted is not a review. What is redacted is the account name inside it:
+    ``C:\\Users\\jayan\\.ssh\\id_rsa`` becomes ``C:\\Users\\<user>\\.ssh\\id_rsa``.
+    The log survives on disk and gets copied into bug reports, and a machine's
+    account name is not something an audit entry needs to carry in order to be
+    useful.
+
+    Args:
+        path: The path as the UI spelled it.
+
+    Returns:
+        The path with the profile directory collapsed, bounded in length.
+    """
+    # A callable replacement, not a string: ``re.sub`` treats a string replacement
+    # as an escape template, and the ``\U`` in ``\Users`` is not a valid escape, so
+    # the obvious spelling raises bad-escape rather than redacting anything.
+    text = re.sub(
+        r"(?i)\\users\\[^\\]+", lambda _match: "\\Users\\<user>", str(path or "")
+    )
+    return text[:_MAX_TARGET_CHARS]
+
+
+def _audit_precheck(
+    request: Request,
+    operation: str,
+    exc: Exception,
+    raw_target: str,
+    raw_extra: str = "",
+) -> None:
+    """Record a refusal that happened before the gate was consulted.
+
+    Session 9, Defect 2. :func:`_precheck` runs the Body's classification guards so
+    that a confirmation the Body would refuse anyway is never shown. Until this
+    function existed the refusal was correct and completely invisible: an attack
+    asking for ``storage/vault.json`` or ``../../.env`` received a 403 and left
+    nothing behind, so the audit log — the one artefact a security review reads —
+    could not distinguish "nothing was attempted" from "something was attempted and
+    refused".
+
+    The record carries the same fields a gate block carries (``category``, ``target``,
+    ``level``, ``trust_level``, ``rule_id``) so one reader and one query cover both,
+    plus the things only a precheck refusal knows: which guard refused, how the path
+    classified, and where the request came from.
+
+    Args:
+        request: Used to reach the audit log, the trust level and the client.
+        operation: The operation name, e.g. ``read`` or ``delete``.
+        exc: The refusal raised by the guard.
+        raw_target: The target as the UI spelled it, before resolution.
+        raw_extra: A second path, for copy and move.
+    """
+    from body.fingers.exceptions import (
+        PathTraversalRefused,
+        SecretFileRefused,
+        ZuzzCoreRefused,
+    )
+
+    from body.fingers.file_classifier import is_secret_file
+
+    refusal = type(exc).__name__
+    classification = "unknown"
+    secret = False
+    try:
+        classification = classify(_safe_target(raw_target)) or "unknown"
+        secret = is_secret_file(raw_target)
+    except Exception:  # pragma: no cover - classification is best-effort
+        classification = "unknown"
+
+    if isinstance(exc, SecretFileRefused):
+        classification = "secret"
+        secret = True
+    elif isinstance(exc, ZuzzCoreRefused):
+        classification = "zuzz_core"
+    elif isinstance(exc, PathTraversalRefused):
+        classification = "traversal"
+
+    record: Dict[str, Any] = {
+        "category": PRECHECK_REFUSAL,
+        "target": _safe_target(raw_target),
+        "level": "refused",
+        "trust_level": request.app.state.trust.current(),
+        "rule_id": "precheck",
+        "refusal_stage": PRECHECK_REFUSAL,
+        "refusal_type": refusal,
+        "operation": operation,
+        "classification": classification,
+        "secret_file": secret,
+    }
+    if raw_extra:
+        record["secondary_target"] = _safe_target(raw_extra)
+    origin = _request_origin(request)
+    record.update(origin)
+    request.app.state.audit.record(PRECHECK_REFUSAL, str(exc), **record)
+
+
+def _request_origin(request: Request) -> Dict[str, Any]:
+    """Describe where a request came from, for the audit record.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        The method and path, and the client host when the transport supplied one.
+        A host is a best-effort attribution — it is absent for in-process calls and
+        trivially spoofable, which is why it is supporting detail rather than the
+        identifying field.
+    """
+    origin: Dict[str, Any] = {
+        "request_method": request.method,
+        "request_path": request.url.path,
+    }
+    client = getattr(request, "client", None)
+    if client is not None and getattr(client, "host", None):
+        origin["request_origin"] = client.host
+    else:
+        origin["request_origin"] = "in-process"
+    return origin
+
+
 async def _run(
     request: Request,
     body: FileRequest,
@@ -308,6 +437,7 @@ async def _run(
                 raw_extra or extra_target,
             )
         except BodyRefused as exc:
+            _audit_precheck(request, operation, exc, raw_target or target, raw_extra)
             raise _refuse(exc) from exc
     action, threat, decision = _gate(request, category, target, body.dry_run)
     if body.dry_run:

@@ -55,6 +55,14 @@ THERMAL_SENSORS_LOST = "thermal_sensors_lost"
 MODEL_PROTECTIVE_UNLOAD = "model_protective_unload"
 MODEL_RELEASED = "model_released"
 
+# Added by Session 9 (Priority 3, Defect 2). A refusal that happened *before* the
+# gate was ever consulted — the Body's classification guards rejecting a secret
+# file, a protected location or an escaping relative path while building the
+# prompt. These attempts were previously refused correctly and recorded nowhere, so
+# a credential-theft or traversal probe left no trace at all: the single most
+# security-relevant class of event was the one class the audit log could not see.
+PRECHECK_REFUSAL = "precheck_refusal"
+
 EVENT_TYPES = frozenset(
     {
         BLOCKED,
@@ -70,6 +78,7 @@ EVENT_TYPES = frozenset(
         THERMAL_SENSORS_LOST,
         MODEL_PROTECTIVE_UNLOAD,
         MODEL_RELEASED,
+        PRECHECK_REFUSAL,
     }
 )
 
