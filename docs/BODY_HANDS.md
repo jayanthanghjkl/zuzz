@@ -598,3 +598,66 @@ seconds and repeat command 1.
 - **A fragment matching two windows is refused**, not resolved by taking the
   first. Guessing which of two windows the user meant is how input lands
   somewhere they did not choose.
+
+---
+
+## 8. Live hardware verification
+
+The automated suite drives a `RecordingActuator`, so it proves refusals but
+cannot prove that an allowed action actually reaches hardware. This script is
+that missing proof, and it is the only place in the project that deliberately
+sends input to the machine it runs on.
+
+```bash
+cd web/zuzz-assistant
+venv\Scripts\activate
+python scripts/live_verify_phase2.py
+```
+
+The script has 7 phases and 24 steps, with a 3-second pause between steps.
+It prompts for `GO` before each step, saves screenshots to
+`storage/logs/live_verify_<timestamp>/`, and writes a JSONL log to
+`storage/logs/live_verify_<timestamp>.jsonl`. Exit code 0 means every
+assertion passed; 2 means an assertion failed; 1 means the run did not
+complete; 130 means Ctrl+C triggered the emergency stop.
+
+### Phases
+
+| Phase | What | Hardware proof |
+|---|---|---|
+| A | Safe mouse movement (no clicks) | Real cursor moves |
+| B | Scratch Notepad typing | Real keystrokes appear |
+| C | Ctrl+Alt+Del refusal | No key reaches Windows |
+| D | Watchdog trigger via 60 rapid clicks | Cursor freezes mid-burst |
+| E | Kill switch reset with cooldown | Stop disengages on `RESET` |
+| F | Mid-operation kill switch (Scenario 5 live) | Write refused mid-operation |
+| G | Clean shutdown + reset instructions | Machine restored to known state |
+
+### Pre-flight checklist
+
+Verify before typing `GO`:
+
+- [ ] Browser tabs saved
+- [ ] Unsaved work saved
+- [ ] Notepad closed (script will open)
+- [ ] No sensitive text in clipboard
+- [ ] Not in fullscreen app
+- [ ] Not on battery <20%
+- [ ] 10 minutes uninterrupted time
+
+### Ctrl+C behaviour
+
+Ctrl+C triggers the emergency stop, releases every held key, and prints the
+exact reset command. It is the safest way to abort at any moment.
+
+### Re-arming after the run
+
+The script prints the exact `curl` commands to:
+
+1. Reset the kill switch (if still engaged)
+2. Release any held key
+3. Clear the clipboard
+4. Restore the trust level to its pre-run value
+5. Close the Notepad window Phase B left open
+
+---
