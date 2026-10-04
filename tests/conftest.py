@@ -57,6 +57,54 @@ def isolate_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def isolate_process_singletons(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """Point the process-wide singletons at per-test storage.
+
+    Session 9 finding. Three singletons are created on first use and then shared by
+    everything: the kill switch, the audit log and the activity logger. Each one
+    defaults to the developer's own ``storage/`` directory, and a test that used one
+    inherited whichever state the machine happened to be in. The kill switch is the
+    expensive one — it reads ``storage/stop.flag``, so a developer who had pressed
+    Ctrl+Shift+Q and not yet reset got a suite where **every** gated action was
+    refused: 155 failures that had nothing to do with the code under test, and a
+    suite that reported the opposite of the truth.
+
+    A test suite must be a function of the code, never of the machine it runs on.
+    Each singleton is therefore replaced with one bound to a fresh directory and
+    restored afterwards so nothing leaks between tests.
+
+    The directory comes from ``tmp_path_factory`` rather than the test's own
+    ``tmp_path`` because these singletons create their directory eagerly, and a
+    stray ``singletons/`` folder inside the test's ``tmp_path`` is visible to any
+    test that lists a directory — which is exactly how it broke
+    ``test_list_hides_hidden_files_unless_asked`` the first time round.
+
+    Tests that genuinely want the real flag locations still can: they construct
+    ``KillSwitch()`` themselves, which reads :func:`flag_paths` directly and is
+    unaffected by this fixture.
+    """
+    from brain.brainstem import activity_logger as activity_logger_module
+    from brain.spinal_cord import kill_switch as kill_switch_module
+    from core import audit as audit_module
+
+    home = tmp_path_factory.mktemp("zuzz-singletons")
+    audit = audit_module.AuditLog(home / "audit.jsonl")
+    monkeypatch.setattr(
+        kill_switch_module,
+        "_SWITCH",
+        kill_switch_module.KillSwitch(paths=[home / "stop.flag"], audit=audit),
+    )
+    monkeypatch.setattr(audit_module, "_AUDIT", audit)
+    monkeypatch.setattr(
+        activity_logger_module,
+        "_logger",
+        activity_logger_module.ActivityLogger(home / "activity.jsonl"),
+    )
+
+
 @pytest.fixture
 def kill_switch_app(tmp_path: Path):
     """Build an app whose kill switch cannot touch the developer's storage.
