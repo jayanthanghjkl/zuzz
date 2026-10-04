@@ -1,4 +1,5 @@
 {
+  "note": "Trust matrix: 20 action categories x 5 trust levels. Decisions: auto, ask, blocked.",
   "levels": {
     "1": {"name": "cautious", "description": "Ask permission for everything"},
     "2": {"name": "assistant", "description": "Auto-approve read-only actions"},

@@ -884,4 +884,47 @@ built what the stop actually reaches.
 - Run a real end-to-end chat test with a live model
 - Phase 2: Prefrontal Cortex permission gate + Amygdala threat detection, then Spinal Cord kill switch
 
+---
+
+## [2026-10-04] Session 9 — Priority 3: Integration Tests + Defect Fixes
+
+### Added
+- 7 new regression tests in `tests/test_phase2_integration.py`:
+  - `test_hands_confirmation_executes_approved_action` — approved write executes
+  - `test_hands_confirmation_rejects_unknown_id` — unknown confirmation_id returns 400
+  - `test_protected_path_refusal_audited` — `C:\Windows\System32` access audited as blocked
+  - `test_secret_file_refusal_audited` — `.env` access audited as blocked
+  - `test_traversal_refusal_audited` — `..\\` traversal audited as blocked
+  - `test_precheck_audit_matches_gate_block_format` — precheck emits structured audit entry
+  - `test_singleton_isolation_prevents_cross_contamination` — kill_switch isolated per-test
+
+### Fixed
+- **Defect 1:** `face/api/routes_hands.py` `_operation_name` returned coordinates; now returns route segment ("click", "type", etc.)
+- **Defect 2:** `face/api/routes_files.py` `_precheck` and `_audit_precheck` now handle protected paths, secret files, and traversal with structured audit logging
+- **Bug:** `face/api/routes_hands.py` `_confirm` used `parked.action` instead of `parked` (already-fixed `Action` object)
+- **Import:** Added missing `AUTO` import to `face/api/routes_hands.py`
+- **15 failing integration tests** fixed across scenarios 1-8 (response format, dry_run nesting, protected paths, thermal levels, confirmation flow, threat scoring, injection blocks)
+
+### Changed
+- `tests/conftest.py` `isolated_world` now sets `app.state.kill_switch.audit = audit`
+- `config/trust_levels.json` added `manage_models` action; header comment added
+- `PROJECT.md` Section 10 Permission Matrix expanded to full 20-row trust matrix
+
+### Test Results
+- 890 tests passing, 2 skipped, 0 failed
+- 47 original integration tests pass; 7 new regression tests added
+- Category reconciliation: 19 `ActionCategory` enum members + 1 config-only `manage_models` = 20 trust matrix rows
+
+### Notes
+- File endpoints return 403 for precheck failures (protected/secret/traversal), not 202
+- Dry-run responses nest `dry_run` under `body["decision"]["dry_run"]`, not top-level
+- File read/write responses return raw content in `result`, not `{"content": ...}`
+- `KillSwitch.reset()` requires `confirmed=True` AND `typed_word="RESET"`
+- `ThermalGuardian.current_level` is read-only; tests must use `_current_level`
+
+### Next Steps
+- Create logical commits A-F and push to remote
+- Consider adding `AUTO` to `__all__` in `brain/prefrontal_cortex/permission_decision.py` if needed
+- Review trust matrix drift: `write_files` is "auto" at level 2 in config but "ask" in PROJECT.md
+
 ```
