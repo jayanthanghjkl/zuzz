@@ -40,7 +40,7 @@ from pydantic import BaseModel, Field
 from brain.amygdala.threat_detector import ThreatDetector
 from brain.prefrontal_cortex.action import Action, ActionCategory
 from brain.prefrontal_cortex.permission_decision import PermissionDecision
-from brain.prefrontal_cortex.permission_gate import PermissionGate
+from brain.prefrontal_cortex.permission_gate import AUTO, PermissionGate
 from core.audit import BLOCKED, CONFIRMATION_GRANTED, CONFIRMATION_REQUESTED
 
 from body.hands import action_classifier
@@ -311,7 +311,11 @@ async def _run(
             content={
                 "status": "confirmation_required",
                 **confirmation_payload(
-                    confirmation_id, target, decision, threat, preview()
+                    confirmation_id,
+                    _operation_name(request),
+                    decision,
+                    threat,
+                    preview(),
                 ),
             },
         )
@@ -353,8 +357,23 @@ async def _confirm(
 ) -> PermissionDecision:
     """Answer a parked confirmation.
 
-    The action is re-decided here rather than upgraded blindly, so a stop that
-    landed while the popup was open still blocks.
+    The parked entry is **popped**, not read. A confirmation is a single-use answer:
+    ``get`` would leave it in the registry, so the same id could be posted twice and
+    the second post would execute the action again. Popping makes the answer and the
+    removal one atomic step, so a replay finds nothing and is refused.
+
+    An earlier version of this function called ``confirmations.get()`` and
+    ``confirmations.consume()``, and inspected a ``consumed`` flag on the entry.
+    :class:`~face.api.file_confirmations.PendingConfirmations` has none of those —
+    it is a create/pop registry shared with the file routes, which have popped their
+    entries this way since Step 4. Every hands confirmation therefore raised
+    ``AttributeError`` and surfaced as a 500, so a user who approved a desktop
+    action in the popup could never carry it out. The unit tests missed it because
+    none of them answered a hands confirmation end to end.
+
+    The action is re-decided here rather than upgraded blindly, so a stop that landed
+    while the popup was open still blocks, and the parked action must be the action
+    being requested — a confirmation for one target cannot be spent on another.
 
     Args:
         request: Used to reach the app's collaborators.
@@ -366,32 +385,33 @@ async def _confirm(
         The upgraded decision.
 
     Raises:
-        HTTPException: 404 for an unknown confirmation, 409 for a stale one.
+        HTTPException: 400 for an unknown, expired, replayed or mismatched id, 409
+            when the stop is engaged, 403 when the re-decision is now blocked.
     """
-    confirmations = request.app.state.confirmations
-    if not body.confirmation_id:
-        raise HTTPException(status_code=400, detail="confirmation_id is required")
-    parked = confirmations.get(body.confirmation_id)
-    if parked is None:
-        raise HTTPException(status_code=404, detail="unknown confirmation")
-    if parked.consumed:
+    entry = request.app.state.confirmations.pop(body.confirmation_id)
+    if entry is None:
         raise HTTPException(
-            status_code=409, detail="confirmation already used; ask again"
+            status_code=400, detail="unknown or expired confirmation_id"
+        )
+    parked: Action = entry["action"]
+    if str(parked.category) != category or parked.target != target:
+        raise HTTPException(
+            status_code=400, detail="confirmation does not match this operation"
         )
     if request.app.state.kill_switch.is_killed():
         raise HTTPException(
             status_code=409, detail="kill switch engaged; reset the stop to continue"
         )
     level = request.app.state.trust.current()
-    decision = PermissionGate().decide(parked.action, level)
-    if decision.blocked or decision.requires_confirmation:
-        raise HTTPException(
-            status_code=403,
-            detail=f"still not permitted at level {level}: {decision.reason}",
-        )
-    confirmations.consume(body.confirmation_id)
-    _audit(request, CONFIRMATION_GRANTED, category, target, decision)
-    return decision
+    fresh = PermissionGate().decide(parked, level)
+    if fresh.blocked:
+        _audit(request, BLOCKED, category, target, fresh)
+        raise HTTPException(status_code=403, detail=fresh.reason)
+    _audit(request, CONFIRMATION_GRANTED, category, target, fresh)
+    # The user has confirmed this specific action, so the "ask" becomes an allow.
+    # Only a gate "ask" is ever upgraded here: a blocked decision cannot reach this
+    # point, because the branch above refuses it first.
+    return replace(fresh, allowed=True, requires_confirmation=False, decision=AUTO)
 
 
 def _plan(description: str, **fields: Any) -> Callable[[], Dict[str, Any]]:
@@ -405,6 +425,29 @@ def _plan(description: str, **fields: Any) -> Callable[[], Dict[str, Any]]:
         A callable the dispatcher can hand to the confirmation store.
     """
     return lambda: {"description": description, **fields}
+
+
+def _operation_name(request: Request) -> str:
+    """Return the operation a confirmation prompt is about.
+
+    ``confirmation_payload`` is shared with the file routes and its second argument
+    is the *operation* name, which the popup shows as the heading. The desktop
+    routes were passing the action's **target** in that slot, so a click at
+    (100, 200) was offered for confirmation under the heading ``"100,200"`` — the
+    user was asked to approve something described only by where the pointer was,
+    with no indication of what pressing the button would do.
+
+    The name is taken from the route rather than threaded through every endpoint as
+    another argument: it is already the last path segment, and duplicating it in
+    twenty signatures is a chance for the label and the route to drift apart.
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        The final path segment, e.g. ``click``, ``type``, ``open-app``.
+    """
+    return request.url.path.rstrip("/").rsplit("/", 1)[-1]
 
 
 # ---------------------------------------------------------------------
