@@ -183,8 +183,8 @@ class ParietalLobe:
 
 | Package | Version | For |
 |---|---|---|
-| `playwright` | 1.45.0 | Browser automation |
-| `Pillow` | 10.4.0 | Image processing |
+| `playwright` | 1.49.1 | Browser automation |
+| `Pillow` | 12.3.0 | Image processing |
 | `mss` | 9.0.1 | Fast screenshots |
 | `pytesseract` | 0.3.10 | OCR backup |
 | `pygetwindow` | 0.0.9 | Active window detection |
@@ -193,9 +193,20 @@ class ParietalLobe:
 Install:
 
 ```bash
-pip install playwright==1.45.0 Pillow==10.4.0 mss==9.0.1 pytesseract==0.3.10 pygetwindow==0.0.9
+pip install playwright==1.49.1 Pillow==12.3.0 mss==9.0.1 pytesseract==0.3.10 pygetwindow==0.0.9
 playwright install chromium
 ```
+
+All of the above are in `requirements.txt` now, so `pip install -r requirements.txt`
+is enough; the line is kept here for reference.
+
+> **Changed in Session 10:** `playwright` and `Pillow` were originally pinned at
+> 1.45.0 and 10.4.0. Those pins cannot be installed on Python 3.13, which is the
+> interpreter on this machine. `playwright` 1.45.0 pins `greenlet==3.0.3`, which
+> has no cp313 wheel and falls back to compiling C extensions, failing without
+> the MSVC toolchain. They are bumped to the lowest versions that ship cp313
+> wheels (playwright 1.49.1 -> greenlet 3.1.1). `mss` and `pytesseract` are
+> pure-Python and keep their original pins.
 
 ---
 

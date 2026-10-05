@@ -50,6 +50,17 @@ def category_of(name: str) -> Any:
 #: the user is already talking to is routine operator work once the trust level
 #: says the operator is in charge. It asks at levels 1 and 2, where evicting a
 #: model someone chose by hand is not the assistant's call.
+#:
+#: ``visual_capture`` was added in Session 11 for the Occipital Lobe. It asks at
+#: levels 1 and 2 and auto-approves from 3, deliberately borrowing
+#: ``mouse_keyboard``'s shape rather than ``read_files``'s: looking at the screen is
+#: not reading a file the user pointed at, because the user never chose what was on
+#: it and a screenshot can hold a credential that no file listing would have shown.
+#: It is also not as dangerous as closing an application or reaching an
+#: ``access_credentials`` path, which is why it does not ask at every level — a
+#: screenshot is one of the main things an operator asks for, and a prompt on every
+#: one would train people to click prompts through, which is the failure mode that
+#: makes prompts worse than none.
 APPROVED_MATRIX: Dict[str, tuple] = {
     "chat": (AUTO, AUTO, AUTO, AUTO, AUTO),
     "read_files": (ASK, AUTO, AUTO, AUTO, AUTO),
@@ -71,6 +82,16 @@ APPROVED_MATRIX: Dict[str, tuple] = {
     "share_data": (BLOCKED, BLOCKED, BLOCKED, BLOCKED, BLOCKED),
     "disable_safety": (BLOCKED, BLOCKED, BLOCKED, BLOCKED, BLOCKED),
     "manage_models": (ASK, ASK, AUTO, AUTO, AUTO),
+    "visual_capture": (ASK, ASK, AUTO, AUTO, AUTO),
+    # The browser's three. Each is stricter than the operation it resembles, and the
+    # direction of that is the point: reaching the web is narrower than opening an
+    # app, acting *on* a page is no wider than controlling the desktop, and fetching
+    # a file stays an ask at every level — including 5, which auto-approves every
+    # other kind of file work. A download is the one file operation a fully trusted
+    # ZUZZ must still ask about, because the file arrives from somewhere else.
+    "browse_internet": (ASK, ASK, ASK, ASK, AUTO),
+    "web_automation": (ASK, ASK, AUTO, AUTO, AUTO),
+    "download_files": (ASK, ASK, ASK, ASK, ASK),
 }
 
 

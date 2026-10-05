@@ -1,0 +1,42 @@
+{
+  "_comment": [
+    "Vision confidence thresholds, approved Session 10 (Q4). Different jobs",
+    "need different precision: a misread description is a wrong sentence, but a",
+    "misread button is a click on the wrong thing.",
+    "",
+    "Each value is the confidence BELOW which the action is not taken silently.",
+    "Between 'refuse_below' and the action's own threshold, ZUZZ asks the user",
+    "to confirm. Below 'refuse_below' it declines outright and suggests another",
+    "approach, because a wrong click is worse than no click.",
+    "",
+    "All values are 0.0-1.0. This file is re-read on every vision call, so it is",
+    "editable without a server restart; that is the intended way to tune these",
+    "on real hardware, where the useful values will differ from any guess made",
+    "before a single screenshot has been taken.",
+    "",
+    "These supersede the flat 70% single threshold in docs/PHASE_3_PLAN.md",
+    "(OccipitalLobe.find_element and the risk table), which assumed one number",
+    "for every task."
+  ],
+  "thresholds": {
+    "click_or_form_fill":   {"value": 0.90, "on_below": "ask",   "why": "a wrong click acts on the wrong target"},
+    "information_extract":  {"value": 0.80, "on_below": "ask",   "why": "a wrong fact is quoted as if it were read"},
+    "describe_scene":       {"value": 0.70, "on_below": "ask",   "why": "a loose description is still a useful hint"},
+    "ocr_text_read":        {"value": 0.85, "on_below": "ask",   "why": "OCR output is transcribed onward, so errors compound"}
+  },
+  "refuse_below": 0.50,
+  "on_refuse": "decline and propose an alternative approach",
+  "fallback": {
+    "_comment": [
+      "Approved Session 10 (Q7): Moondream first, Tesseract as the second read.",
+      "Tesseract is only invoked when Moondream's confidence is under its OCR",
+      "threshold or its text looks garbled, so the common case stays one model."
+    ],
+    "primary": "moondream",
+    "secondary": "tesseract",
+    "secondary_trigger_below": 0.85,
+    "on_agreement": "use the agreed text",
+    "on_disagreement": "use the higher-confidence read and flag it to the user",
+    "on_total_failure": "ask the user to type what they see"
+  }
+}

@@ -150,9 +150,13 @@ no cloud key is configured — check steps 2 and 4.
 python -m pytest tests -q
 ```
 
-Expected: `97 passed`. The suite stubs out Ollama and every cloud provider with
+Expected: `890 passed, 2 skipped`. The suite stubs out Ollama and every cloud provider with
 `httpx.MockTransport`, and an autouse fixture strips credentials from `.env`
 first — so it runs offline and can never touch a real account.
+
+Run it with the virtual environment active (step 1). Running it against a bare
+system interpreter can pass or fail for reasons that have nothing to do with the
+code, because the dependencies differ from the pinned set.
 
 ## 9. Check Provider Status
 
@@ -164,13 +168,73 @@ Invoke-RestMethod http://localhost:8080/api/providers | ConvertTo-Json -Depth 4
 Each provider reports `healthy`, `degraded`, `offline`, `rate_limited` or
 `unconfigured`, plus the reason and its per-minute quota usage.
 
-## 10. What Is Not Built Yet
+## 10. Phase 3 Extra Setup (vision + browser)
 
-Phase 1 is chat only. These do not exist yet, even though the folders are there:
+Phase 3 is not started yet. Everything below can be prepared now so that Step 1
+does not stall on it.
 
-- **Computer control** (mouse, keyboard, files, browser) — Phase 2
-- **Safety core** (permission gate, threat detection, kill switch) — Phase 2
-- **Vision** (screenshots, Moondream) — Phase 3
+The vision and browser packages are already in `requirements.txt`, so step 1
+covers them. Two things are **not** covered by pip:
+
+### 10a. Chromium for Playwright
+
+```powershell
+venv\Scripts\activate
+python -m playwright install chromium
+```
+
+Downloads both the full Chromium build and the headless shell (~90 MB). The full
+build is the one that matters: ZUZZ's browser runs **visible** by default so
+that you can watch it and intervene, with headless available as an explicit
+opt-in flag. A headless-shell-only install will fail to show a window.
+
+### 10b. Tesseract — manual, needs administrator
+
+```powershell
+winget install UB-Mannheim.TesseractOCR
+```
+
+`pytesseract` is only a wrapper around the Tesseract binary; without the binary
+installed the OCR fallback silently does nothing. This installer is an OS-level
+change, so it is not automated here. After installing, confirm:
+
+```powershell
+tesseract --version
+```
+
+Restart the terminal afterwards so `PATH` picks it up.
+
+### 10c. Vision model
+
+Moondream is the primary reader, with Tesseract as the second opinion when
+Moondream's confidence falls under the OCR threshold:
+
+```powershell
+ollama pull moondream
+```
+
+### 10d. Phase 3 configuration
+
+Two files ship with the decisions already recorded in them:
+
+| File | Holds |
+|---|---|
+| `config/url_allowlist.json` | 11 preset domains, download quarantine rules, tab caps |
+| `config/vision_thresholds.json` | Per-task confidence thresholds and the OCR fallback ladder |
+
+Both are re-read on every lookup, so editing either takes effect without a
+restart. `vision_thresholds.json` is expected to be tuned on real hardware — the
+values in it are starting guesses made before any screenshot had been taken.
+
+---
+
+## 11. What Is Not Built Yet
+
+Phases 1 and 2 are built. Phase 2 is code-complete and still awaiting its live
+hardware verification. These do not exist yet, even though the folders are there:
+
+- **Vision** (screenshots, Moondream, OCR) — Phase 3
+- **Browser automation** (Playwright, navigation, extraction) — Phase 3
 - **Memory** (conversation history on disk, semantic search) — Phase 6
 - **Encrypted key entry from the web UI** — the vault (`api_vault.py`) works and
   is tested, but connectors still read keys from `.env`

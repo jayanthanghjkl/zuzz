@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Browser</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/hands.css" />
+  <link rel="stylesheet" href="/static/css/browser.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Browser</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <span id="kill-badge" class="badge badge-ok" title="Emergency stop">running</span>
+      <a class="ghost-btn tab-link" href="/pages/files.html" title="File manager (gated)">Files</a>
+      <a class="ghost-btn tab-link" href="/pages/hands.html" title="Desktop (gated)">Desktop</a>
+      <a class="ghost-btn tab-link" href="/" title="Back to chat">Chat</a>
+      <button id="stop-btn" class="stop-btn" type="button" title="Emergency stop (Ctrl+Shift+Q)">Stop</button>
+    </div>
+  </header>
+
+  <div id="stop-banner" class="stop-banner hidden">
+    <span>ZUZZ is stopped — the browser is closed and nothing can be sent to a page. Clear the stop to use it again.</span>
+  </div>
+
+  <div id="warn-banner" class="warn-banner hidden">
+    <span id="warn-text"></span>
+  </div>
+
+  <main class="browser-layout">
+    <section class="browser-panel" aria-label="Where to go">
+      <div class="panel-head">
+        <span class="panel-title">Go</span>
+        <span id="session-summary" class="muted">no session</span>
+      </div>
+
+      <div class="session-row">
+        <label class="check" title="A window you can see and stop. ZUZZ will not start one it cannot show you.">
+          <input id="headless" type="checkbox" /> hidden window
+        </label>
+        <button id="op-open" class="ghost-btn" type="button">Start browser</button>
+        <button id="op-close" class="ghost-btn danger" type="button">Close</button>
+        <button id="status-refresh" class="ghost-btn" type="button">Status</button>
+      </div>
+
+      <div class="goto-row">
+        <input id="url" placeholder="https://example.com" title="Checked against the allowlist before anything loads" />
+        <button id="op-go" class="ghost-btn" type="button">Go</button>
+        <button id="op-newtab" class="ghost-btn" type="button" title="Open the box's URL in a new tab">New tab</button>
+      </div>
+
+      <div class="search-row">
+        <input id="query" placeholder="search the web" title="A phrase, not a URL" />
+        <select id="engine" title="Which engine to ask">
+          <option value="duckduckgo">DuckDuckGo</option>
+          <option value="google">Google</option>
+          <option value="bing">Bing</option>
+        </select>
+        <button id="op-search" class="ghost-btn" type="button">Search</button>
+      </div>
+
+      <div class="panel-head sub">
+        <span class="panel-title">Read</span>
+        <span class="muted">extraction is capped by config</span>
+      </div>
+      <div class="btn-row">
+        <button id="op-text" class="ghost-btn" type="button">Text</button>
+        <button id="op-links" class="ghost-btn" type="button">Links</button>
+        <button id="op-title" class="ghost-btn" type="button">Title &amp; URL</button>
+        <button id="op-fields" class="ghost-btn" type="button">Form fields</button>
+        <button id="op-table" class="ghost-btn" type="button">Tables</button>
+        <button id="op-meta" class="ghost-btn" type="button">Metadata</button>
+        <button id="op-html" class="ghost-btn" type="button">HTML</button>
+        <button id="op-shot" class="ghost-btn" type="button">Screenshot</button>
+        <button id="op-shot-full" class="ghost-btn" type="button" title="The whole scrollable page">Full screenshot</button>
+      </div>
+      <p class="policy-intro">Reading a page is an act, and it is decided like one. HTML is capped hardest — a whole document is the easiest way to pull a private page into a log.</p>
+    </section>
+
+    <section class="browser-panel" aria-label="Tabs">
+      <div class="panel-head">
+        <span class="panel-title">Tabs</span>
+        <span id="tab-summary" class="muted">0 tabs</span>
+      </div>
+      <ul id="tab-list" class="tab-list"></ul>
+      <div class="btn-row">
+        <button id="op-switch" class="ghost-btn" type="button">Switch to selected</button>
+        <button id="op-closetab" class="ghost-btn danger" type="button">Close selected</button>
+        <button id="tabs-refresh" class="ghost-btn" type="button">Refresh</button>
+      </div>
+      <p id="tab-note" class="policy-intro"></p>
+    </section>
+
+    <section class="browser-panel" aria-label="Act on the page">
+      <div class="panel-head">
+        <span class="panel-title">Act</span>
+        <span id="vision-note" class="muted"></span>
+      </div>
+
+      <label class="field-label">Click
+        <input id="click-text" placeholder="button text or a CSS selector" />
+      </label>
+      <div class="btn-row">
+        <button id="op-click" class="ghost-btn" type="button">Click</button>
+      </div>
+
+      <label class="field-label">Click a point, from what you can see
+        <div class="point-row">
+          <input id="px" type="number" placeholder="x" />
+          <input id="py" type="number" placeholder="y" />
+          <input id="pconf" type="number" step="0.05" min="0" max="1" placeholder="confidence" title="How sure you are. Below the configured floor, ZUZZ asks instead of guessing." />
+        </div>
+      </label>
+      <div class="btn-row">
+        <button id="op-clickxy" class="ghost-btn" type="button">Click point</button>
+      </div>
+
+      <div class="panel-head sub">
+        <span class="panel-title">Fill a form</span>
+        <span class="muted">one field per line: <code>handle = value</code></span>
+      </div>
+      <textarea id="formdata" rows="5" spellcheck="false" placeholder="email = jane@example.com&#10;password = ..."></textarea>
+      <div class="btn-row">
+        <button id="op-fill" class="ghost-btn" type="button">Fill only</button>
+        <button id="op-submit" class="ghost-btn warn-btn" type="button" title="Fill, then press the form's submit button">Fill and submit</button>
+      </div>
+      <p class="policy-intro">Fill never submits. Sending a form is a separate thing to agree to, which is why it is a separate button and not a checkbox after the fact.</p>
+    </section>
+
+    <aside class="browser-panel" aria-label="Downloads and sites">
+      <div class="panel-head">
+        <span class="panel-title">Downloads</span>
+        <span id="dl-summary" class="muted">holding pen empty</span>
+      </div>
+      <div class="dl-row">
+        <input id="dl-url" placeholder="https://example.com/file.pdf" />
+        <button id="op-download" class="ghost-btn" type="button">Download</button>
+      </div>
+      <p class="policy-intro">A download is two decisions: fetching it, and writing it to disk. Both are shown in one prompt, and nothing is executed while it waits.</p>
+      <ul id="dl-list" class="dl-list"></ul>
+
+      <div class="panel-head sub">
+        <span class="panel-title">Sites you have approved</span>
+        <button id="allow-refresh" class="ghost-btn" type="button">Refresh</button>
+      </div>
+      <ul id="allow-list" class="allow-list"></ul>
+      <p class="policy-intro">Forgetting a site takes back the approval <em>and</em> deletes the cookies and storage ZUZZ kept for it. A domain on this list can be reached without asking again; everything else asks.</p>
+    </aside>
+  </main>
+
+  <div id="out" class="out hidden" aria-live="polite">
+    <div class="out-head">
+      <span id="out-title">Result</span>
+      <div class="btn-row">
+        <button id="out-copy" class="ghost-btn" type="button">Copy</button>
+        <button id="out-close" class="ghost-btn" type="button">Close</button>
+      </div>
+    </div>
+    <pre id="out-body" class="out-body"></pre>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-box">
+      <h2 id="modal-title">Confirm browser action</h2>
+      <dl id="modal-details" class="modal-details"></dl>
+      <p id="modal-reason" class="modal-reason"></p>
+      <label id="modal-domain-row" class="check hidden">
+        <input id="modal-domain" type="checkbox" checked />
+        <span id="modal-domain-label">remember this site</span>
+      </label>
+      <label class="check hidden"><input id="modal-persist" type="checkbox" /><span>stay signed in next time (keeps cookies, encrypted at rest)</span></label>
+      <label class="check"><input id="modal-dry-run" type="checkbox" /> dry run only</label>
+      <div class="modal-row">
+        <button id="modal-confirm" class="send-btn" type="button">Confirm</button>
+        <button id="modal-cancel" class="ghost-btn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/js/browser.js"></script>
+</body>
+</html>

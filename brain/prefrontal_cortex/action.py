@@ -40,6 +40,37 @@ class ActionCategory(str, Enum):
     DELETE_OS_FILES = "delete_os_files"
     SHARE_DATA = "share_data"
     DISABLE_SAFETY = "disable_safety"
+    #: Added by Session 11 for the Occipital Lobe. A screenshot is a read, but a
+    #: more exposed one than ``read_files``: a single frame routinely holds a
+    #: logged-in banking session, a password field or a private message, and the
+    #: Body layer's refusal of a credential file has no equivalent to offer here,
+    #: because the pixels are not a file. It therefore gets its own row rather
+    #: than borrowing ``read_files``, so the two can be tuned apart on the
+    #: evidence rather than on a guess about which number looks sensible.
+    VISUAL_CAPTURE = "visual_capture"
+    #: Added by Phase 3 Step 2 for Body/Legs. The existing ``browse`` row covers
+    #: *reaching* a page, which is why it stays where it is. These three split out
+    #: the parts of using a browser that are not reaching one, because they are not
+    #: the same risk and tuning them together is how a browser ends up either
+    #: unusable or unchecked.
+    #:
+    #: * ``browse_internet`` — navigating to, and reading, a URL. The body of what
+    #:   ZUZZ does online: a page is untrusted content arriving, not an action
+    #:   taken on the machine, so it is asked for right up to full autonomy and only
+    #:   handed over at level 5.
+    #: * ``web_automation`` — clicking, typing, selecting and submitting. These act
+    #:   *on* the world: a click can send a message, place an order or delete
+    #:   something on a site ZUZZ is merely reading. They therefore sit where
+    #:   ``mouse_keyboard`` sits, not where ``browse`` does — trusted as the user
+    #:   trusts a click, and no more trusted just because the click is remote.
+    #: * ``download_files`` — fetching a file off a site and putting it on disk.
+    #:   Its own row because it is the one that leaves the machine: the bytes are
+    #:   unreviewed, the destination is a quarantine rather than a folder the user
+    #:   chose, and an executable is the specific shape of this that has ended with
+    #:   people running installers they never saw.
+    BROWSE_INTERNET = "browse_internet"
+    WEB_AUTOMATION = "web_automation"
+    DOWNLOAD_FILES = "download_files"
 
     def __str__(self) -> str:
         """Return the config key for this category."""

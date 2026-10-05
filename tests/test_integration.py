@@ -11,7 +11,18 @@ from typing import Any, Dict, List
 import pytest
 from fastapi.testclient import TestClient
 
+from face.api import routes_chat
 from face.api.server import create_app
+
+
+async def _always_online() -> bool:
+    """Stand-in connectivity probe reporting a reachable cloud provider."""
+    return True
+
+
+async def _always_offline() -> bool:
+    """Stand-in connectivity probe reporting no outbound network."""
+    return False
 
 
 class StubBridge:
@@ -116,11 +127,29 @@ def test_forced_level_is_honoured(client: TestClient) -> None:
     assert response.json()["reason"] == "forced level"
 
 
-def test_classify_endpoint(client: TestClient) -> None:
-    """Classification is available without calling a model."""
+def test_classify_endpoint(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Classification is available without calling a model.
+
+    Connectivity is stubbed so the assertion tests the classifier rather than
+    the CI machine's network. Without internet the analyzer caps every level at
+    2 by design, which would mask the complex-reasoning match entirely.
+    """
+    monkeypatch.setattr(routes_chat, "internet_available", _always_online)
     response = client.post("/api/classify", json={"message": "debug this stack trace"})
     assert response.status_code == 200
     assert response.json()["level"] >= 3
+
+
+def test_classify_endpoint_caps_level_when_offline(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same debug message falls back to a local level with no internet."""
+    monkeypatch.setattr(routes_chat, "internet_available", _always_offline)
+    response = client.post("/api/classify", json={"message": "debug this stack trace"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["level"] == 2
+    assert body["offline_fallback"] is True
 
 
 def test_brain_status_endpoint(client: TestClient) -> None:

@@ -14,8 +14,20 @@ def test_system_prompt_contains_identity_and_rules() -> None:
     """The system prompt must carry identity and safety rules."""
     prompt = build_system_prompt()
     assert "ZUZZ" in prompt
-    assert "Jayanthan" in prompt
+    assert "jayan" in prompt
     assert "fabricate" in prompt
+
+
+def test_system_prompt_names_the_real_windows_account() -> None:
+    """The prompt must state the literal account, not the owner's full name.
+
+    Local models turn a human name into a matching capitalised folder, so the
+    prompt carries `C:\\Users\\jayan` verbatim. The full name must not survive
+    anywhere in the prompt or the model invents a folder that does not exist.
+    """
+    prompt = build_system_prompt()
+    assert r"C:\Users\jayan" in prompt
+    assert "Jayanthan" not in prompt
 
 
 def test_system_prompt_includes_context() -> None:

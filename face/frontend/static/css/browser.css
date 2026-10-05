@@ -1,0 +1,231 @@
+/* Browser page layout. Extends main.css and reuses hands.css, so the
+   topbar, banners, modal and toast stay identical to the pages the user
+   has already learned to read — a confirmation prompt that looks
+   different on this page would be a confirmation prompt that reads as
+   less trustworthy.
+
+   Only what the browser page adds on top of those two lives here. */
+
+.browser-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(260px, 0.9fr);
+  gap: 14px;
+  padding: 14px;
+  align-items: start;
+}
+
+.browser-panel {
+  background: var(--panel, #171a21);
+  border: 1px solid var(--line, #262b36);
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 0;
+}
+
+/* The second panel head inside a panel is a divider, not a duplicate
+   title bar, so it gets a rule above it instead of the panel's spacing. */
+.panel-head.sub {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line, #262b36);
+}
+
+/* -- rows of controls --------------------------------------------- */
+
+.session-row,
+.goto-row,
+.search-row,
+.dl-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.goto-row input,
+.search-row input,
+.dl-row input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line, #262b36);
+  background: #10131a;
+  color: inherit;
+  font: inherit;
+}
+
+.session-row {
+  justify-content: space-between;
+}
+
+/* Headless is the one option here that is *not* free, so it sits apart
+   from the buttons and is labelled as a cost rather than a preference. */
+.session-row .check {
+  color: var(--muted, #8b93a7);
+  font-size: 12px;
+}
+
+.warn-btn {
+  border-color: #6b5417;
+  color: #f0d69a;
+}
+
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted, #8b93a7);
+  margin-bottom: 8px;
+}
+
+.field-label input,
+.point-row input,
+textarea {
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line, #262b36);
+  background: #10131a;
+  color: inherit;
+  font: inherit;
+  width: 100%;
+}
+
+textarea {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+.point-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* -- lists --------------------------------------------------------- */
+
+.tab-list,
+.dl-list,
+.allow-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.tab-list li,
+.dl-list li,
+.allow-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  background: #10131a;
+  border: 1px solid var(--line, #262b36);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.tab-list li.selected {
+  border-color: #5b9cff;
+}
+
+.tab-list li.unread {
+  opacity: 0.62;
+}
+
+.tab-list button,
+.allow-list button {
+  margin-left: auto;
+  flex: none;
+}
+
+.tab-title,
+.dl-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.tab-host,
+.dl-meta,
+.allow-meta {
+  color: var(--muted, #8b93a7);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.empty-note {
+  color: var(--muted, #8b93a7);
+  font-size: 12px;
+  padding: 6px 0;
+}
+
+/* -- the result drawer -------------------------------------------- */
+
+/* Extraction results and HTML can be large, and a page that silently
+   scrolls a megabyte of markup past the user is a page that will get
+   missed. The drawer is scrollable, and the body never grows the page. */
+.out {
+  margin: 0 14px 14px;
+  border: 1px solid var(--line, #262b36);
+  border-radius: 10px;
+  background: var(--panel, #171a21);
+  overflow: hidden;
+}
+
+.out-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line, #262b36);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.out-body {
+  margin: 0;
+  padding: 12px;
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.out-body img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+}
+
+/* The "remember this site" row is the answer to the allowlist's own
+   question rather than to the gate's, so it is styled as part of the
+   prompt and defaults to on — the common answer is yes, and a user who
+   means no has one checkbox to untick. */
+#modal-domain-row,
+#modal-domain-row + .check {
+  margin-top: 8px;
+}
+
+@media (max-width: 1180px) {
+  .browser-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,5 +1,39 @@
 {
-  "note": "Trust matrix: 20 action categories x 5 trust levels. Decisions: auto, ask, blocked.",
+  "note": "Trust matrix: 24 action categories x 5 trust levels. Decisions: auto, ask, blocked.",
+  "visual_capture_note": [
+    "visual_capture (Session 11) asks at levels 1 AND 2, where read_files",
+    "auto-approves from level 2. A named file can be classified before it is",
+    "opened; a screen cannot — the frame may hold a bank portal, a password",
+    "manager or a password field with nothing in the caller's request to say",
+    "so. The step up to 3 is where the user has accepted that ZUZZ looks at",
+    "the screen unprompted."
+  ],
+  "browser_note": [
+    "The three browse_internet / web_automation / download_files rows are Phase 3",
+    "Step 2, and they are deliberately not the browse row's numbers with new",
+    "labels on them.",
+    "",
+    "browse_internet is the only one that asks all the way up and hands over at 5.",
+    "A page is unreviewed content arriving from someone else, and the trust levels",
+    "below 5 are precisely the ones where the user has not yet said they are",
+    "happy for ZUZZ to read the internet unprompted. Note it is *stricter* than",
+    "browse, which auto-approves from 4: browse was written when browsing meant",
+    "'open a browser window for the user to look at', and there is nothing in that",
+    "for ZUZZ to get wrong. Fetching and reading a page is a different act.",
+    "",
+    "web_automation sits where mouse_keyboard sits, asking to 2 and auto from 3.",
+    "A click in a page is a click on the world — it can send a message, place an",
+    "order, delete a document on a site ZUZZ is only reading. It is trusted exactly",
+    "as much as the user's own click and not one bit more, which is the whole",
+    "reason it is a separate row: it would be easy, and wrong, to let clicking",
+    "inherit browse's permission because 'the user already allowed the browsing'.",
+    "",
+    "download_files asks at EVERY level, 5 included, and there is no row above it",
+    "because there should not be one. Trust level 5 is autonomy over ZUZZ's own",
+    "routine work, not permission to put unreviewed binaries on the disk without",
+    "being asked. The cost of asking here is one click, and the cost of not asking",
+    "is the thing every other row in this file exists to prevent."
+  ],
   "levels": {
     "1": {"name": "cautious", "description": "Ask permission for everything"},
     "2": {"name": "assistant", "description": "Auto-approve read-only actions"},
@@ -28,7 +62,11 @@
     "delete_os_files":     {"1": "blocked", "2": "blocked", "3": "blocked", "4": "blocked", "5": "blocked"},
     "share_data":          {"1": "blocked", "2": "blocked", "3": "blocked", "4": "blocked", "5": "blocked"},
     "disable_safety":      {"1": "blocked", "2": "blocked", "3": "blocked", "4": "blocked", "5": "blocked"},
-    "manage_models":        {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"}
+    "manage_models":        {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "visual_capture":       {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "browse_internet":      {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "auto"},
+    "web_automation":       {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "download_files":       {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"}
   },
   "policy": {
     "default_trust_level": 1,

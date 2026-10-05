@@ -1,4 +1,4 @@
-### File 1: `web\zuzz-assistant\PROJECT.md`
+﻿### File 1: `web\zuzz-assistant\PROJECT.md`
 
 ```markdown
 # 🧠 ZUZZ — Digital Brain AI Agent
@@ -874,7 +874,7 @@ ngrok            (auth token)            Free, random URL
 * [x] Build Thalamus (level 1-5 classification, offline capping, fallback chain)
 * [x] Build Brainstem (FastAPI server, immutable activity log, heartbeat, scheduler, model reaper)
 * [x] Build web chat interface (streaming WebSocket UI with status panel)
-* [x] Test suite written and passing (450 tests, incl. routing regressions)
+* [x] Test suite written and passing (1122 tests, incl. routing regressions)
 * [x] HEALTH CHECK SCRIPT passing
 * [x] Build Corpus Callosum (5 cloud connectors: Groq, Colab, HuggingFace, OpenRouter, NVIDIA)
 * [x] Build API Vault (Fernet encrypted credential storage)
@@ -885,6 +885,12 @@ ngrok            (auth token)            Free, random URL
 * [x] Project root path change approved (was C:\ZUZZ, now web\zuzz-assistant)
 * [x] **AGENT ACTION LOOP LIVE** — a chat reply can now make ZUZZ *do* something,
   not only say something. See "Agent Action Loop Status" below.
+* [x] **PHASE 3 STEP 1 — OCCIPITAL LOBE**: screen capture, element location, OCR,
+  before/after comparison, and a sensitive-content classifier that runs before storage.
+  See "Phase 3 Status" below.
+* [x] **PHASE 3 STEP 2 — BODY/LEGS**: a real browser behind Playwright. Navigation,
+  clicking, form filling, extraction, search, tab management and downloads into
+  quarantine, behind the same gate everything else uses.
 
 ### Phase 1 Status
 
@@ -901,7 +907,7 @@ docs/MODEL_MAINTENANCE.md.
 
 ### Phase 2 Status
 
-APPROVED and building, four steps in.
+APPROVED and code-complete through step 7.
 
 * **Step 1 — Prefrontal Cortex**: the permission matrix, the immutable rules
   with a startup digest check, the gate, and the escalating trust-level
@@ -929,6 +935,54 @@ APPROVED and building, four steps in.
 
 Decisions are recorded in docs/PHASE_2_PLAN.md section 14, and the Body layer
 pattern in docs/ARCHITECTURE.md section 8.
+
+### Phase 3 Status
+
+Steps 1 and 2 code-complete and verified live 2026-10-05.
+
+* **Step 1 — Occipital Lobe** (31 modules, `brain/occipital_lobe/`). Capture through
+  `mss`, Moondream over local Ollama, element location in pixel/normalised/desktop
+  space, OCR with the approved Tesseract fallback ladder, before/after comparison on two
+  independent measures (dHash + pixel diff), and a classifier that decides whether a
+  frame may be written to disk. Five invariants are enforced by a module rather than by
+  a convention:
+  * the `PermissionDecision` is the **signature** of every public method, so no caller
+    reaches the framebuffer by accident and no downstream refactor can change that;
+  * crops are **refused, never clamped** — a clamped crop is a picture of something
+    other than what was asked for, and every coordinate read out of it would be wrong
+    by an amount the caller cannot see;
+  * the VRAM budget is consulted **before the model loads**, so a refusal becomes
+    `VisionModelUnavailable` rather than a crash of the GPU driver;
+  * screen text arrives as `UntrustedText` and every prompt is built by
+    `vision_prompts`, which the Cerebrum never imports;
+  * confidence is **derived, never invented** — no stated number scores 0.0, and the
+    per-job thresholds in `config/vision_thresholds.json` decide what it means
+    (accept / ask / decline, with `refuse_below` deliberately lower than each job's
+    threshold).
+* **Step 2 — Body/Legs** (11 modules, `body/legs/`). A real browser via Playwright:
+  navigation, clicking by selector or vision coordinate, form filling, extraction,
+  search, tab management with a hard cap, and downloads into a quarantine through
+  Body/Fingers. The URL guard refuses link-local and cloud-metadata addresses outright
+  (`169.254.169.254` → HTTP 403 "never navigable"), and JavaScript runs only on domains
+  the user has confirmed.
+
+**Live verification (2026-10-05, trust level 4):** real 1920x1080 frame captured,
+classified `safe` and stored; real Chromium launched and navigated; page text extracted
+from the live page; browser frame stored through the Occipital store; metadata address
+refused. `Delete C:\Windows` blocked by **immutable rule R1** at trust 4.
+
+**Gap — the wiring that matters most.** Neither subsystem is in the model's tool
+catalogue, which still lists the original 15 tools. A chat reply therefore cannot reach
+either one: "What do you see on my screen?" is answered by the 3B model from nothing,
+inventing a description instead of saying it cannot see. Both subsystems work perfectly
+through their own API — this is missing wiring, not missing capability. Exposing them to
+the Cerebrum is the next session's work.
+
+**Also outstanding:** `moondream` is not pulled, so `/api/vision/describe` will not
+answer yet (`ollama pull moondream`; the VRAM check already reports it fits in 3108 MB).
+`routes_hands`' app alias resolver maps `chrome` to a bare `chrome.exe`, which is not on
+PATH on this machine — Chrome lives at `C:\Program Files\Google\Chrome\Application`, so
+`open_app` reports `[WinError 2]` for it.
 
 ### Agent Action Loop Status
 
@@ -974,18 +1028,40 @@ replayed id finds nothing. The WebSocket streams tokens, emits `done`, then emit
 | "Delete C:\Windows" | Refused. Model declined in prose *and* immutable rule R1 blocked the forced block. |
 | "What is 2+2?" | Pure chat, empty action envelope. |
 
-**Known gap.** `core/paths.py` classifies a bare volume root (`C:\`) as `safe`,
+**Known gaps.** `core/paths.py` classifies a bare volume root (`C:\`) as `safe`,
 because `PROTECTED_PREFIXES` lists `C:\Windows` and not the root. A delete of
 `C:\` therefore parks for approval instead of being refused outright. It fails
 safe — `delete_files` asks at every trust level, and `TrashManager` physically
 cannot move a volume root into itself — but the prompt is unnecessary. Worth
 adding the drive roots to `PROTECTED_PREFIXES`.
 
+The identity line no longer teaches the model to invent a username. `BASE_IDENTITY`
+said "Jayanthan's Windows laptop" and the local models expanded it into a matching
+capitalised folder, emitting `C:/Users/Jayanthan/Desktop/hello.txt`. The prompt now
+names the account literally and carries the resolved path `C:\Users\jayan`.
+
+
+### Overall Progress
+
+**~60% complete.** 1122 tests passing, 2 skipped (symlink), 0 failures. 244 Python
+files, 56,716 lines (41,063 source, 15,653 test).
+
+Phases 1 and 2 are code-complete; Phase 3 steps 1 and 2 are code-complete and the
+agent action loop is live. What remains is Phase 3 step 3 (Parietal Lobe), the tool
+wiring that puts the Occipital Lobe and Body/Legs in front of the model, and
+end-to-end verification once Ollama and the three local models are installed.
 
 ### Next Step
 
-* [ ] Phase 1 END-TO-END VERIFICATION on Jayanthan's laptop (needs Ollama + the 3 models)
-* [ ] Set up Python virtual environment
+* [ ] **Wire the Occipital Lobe and Body/Legs into the tool catalogue** — the highest
+      value change available. Both work; the model cannot reach either.
+* [ ] `ollama pull moondream` — the vision model is not present, so `/api/vision/describe`
+      cannot answer until it is
+* [ ] Phase 3 Step 3: Parietal Lobe (see docs/PHASE_3_PLAN.md)
+* [ ] App resolver: map `chrome` to its full install path, not a bare `chrome.exe`
+* [ ] Drive-root protection: add volume roots to `core/paths.PROTECTED_PREFIXES`
+* [ ] Phase 1 END-TO-END VERIFICATION (needs Ollama + the 3 models)
+* [x] Set up Python virtual environment
 * [x] Create .env with API keys (Groq, HuggingFace, OpenRouter, NVIDIA, Colab, Telegram, ntfy)
 * [ ] Download local models (Qwen 1.5B, 3B, Moondream)
 * [x] Connect to Colab cloud brain (colab_connector.py) — verified live
@@ -994,18 +1070,18 @@ adding the drive roots to `PROTECTED_PREFIXES`.
 * [x] Phase 2 Step 1: Prefrontal Cortex (trust matrix, immutable rules, gate, confirmation flow)
 * [x] Phase 2 Step 2: Amygdala threat detection (0-10 scoring, context-aware, audit log)
 * [x] Phase 2 Step 3: Spinal Cord kill switch (flag file in two locations, gate blocks everything, watchdog, hotkey process, Stop button)
-* [x] Phase 2 Step 3: Spinal Cord kill switch (flag file in two locations, gate blocks everything, watchdog, hotkey process, Stop button)
-* [x] Phase 2 Step 4: Body/Fingers (file operations behind the gate) — file operations verified safe through attack tests
-* [ ] Phase 2 Step 5: Body/Hands (mouse and keyboard behind the gate)
-* [ ] Phase 2 Step 6: Hypothalamus VRAM-aware model loading
-* [ ] Phase 2 Step 7: integration test
+* [x] Phase 2 Step 4: Body/Fingers (file operations behind the gate) — verified safe through attack tests
+* [x] Phase 2 Step 5: Body/Hands (mouse and keyboard behind the gate) — 15 tools wired
+* [x] Phase 2 Step 6: Hypothalamus VRAM-aware model loading
+* [x] Phase 2 Step 7: integration test
+* [x] **Phase 3 Step 1: Occipital Lobe** — screen vision behind the gate
+* [x] **Phase 3 Step 2: Body/Legs** — browser behind the gate
+* [x] **Agent Action Loop** — 15 tools wired through the safety gate
 
 ### Not Started
 
-* [ ] Phase 2-10 (see Build Phases above)
-* [ ] Agent Action Loop: drive-root protection (add volume roots to
-      `core/paths.PROTECTED_PREFIXES`), and stop the identity line teaching the
-      model to invent a username in a path — see the Session 12 changelog entry
+* [ ] Phase 3 Step 3+: Parietal Lobe and the remaining brain regions
+* [ ] Cloud brain connectors need re-verification (no outbound egress on this machine)
 
 ```
 * [x] Local Ollama path VERIFIED LIVE — both models answering, routing L1 to 1.5B and L2 to 3B

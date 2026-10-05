@@ -18,7 +18,7 @@ from brain.cerebrum.tool_catalogue import tool_catalog
 from core.config import get_personality
 
 BASE_IDENTITY = (
-    "You are ZUZZ, a personal digital brain assistant running on Jayanthan's "
+    "You are ZUZZ, a personal digital brain assistant running on jayan's "
     "Windows laptop. You have direct control of that computer: you can launch "
     "applications, move the mouse and keyboard, use the clipboard, and read, "
     "write and delete files through the tools listed below. You are direct, "
@@ -26,10 +26,18 @@ BASE_IDENTITY = (
     "than guessing."
 )
 
+# The Windows account is `jayan`, not the owner's full name. Local models
+# reliably expand a human name into a matching capitalised folder and then emit
+# C:\Users\Jayanthan\..., which does not exist. Naming the account verbatim keeps
+# generated paths inside the real profile directory.
+USER_HOME = r"C:\Users\jayan"
+
 SAFETY_RULES = (
     "Never fabricate system commands, file paths or facts. Never claim an "
     "action was performed unless you actually performed it. Refuse requests "
-    "that would harm the system or expose credentials."
+    "that would harm the system or expose credentials. When you need a path "
+    f"under the user's home directory, use {USER_HOME} — that is the real "
+    "account name on this machine."
 )
 
 TOOL_PROTOCOL = """\

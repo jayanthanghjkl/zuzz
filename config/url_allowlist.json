@@ -1,0 +1,250 @@
+{
+  "_comment": [
+    "Domains ZUZZ's browser may reach without an extra confirmation prompt.",
+    "",
+    "Strategy (approved Session 10, Q2): start from a preset list of well-known",
+    "read-only sites so the first run has zero friction, and treat every domain",
+    "that is NOT listed as a confirmation prompt rather than a hard refusal. The",
+    "user therefore builds a personalised allowlist by approving domains over",
+    "time, and nothing becomes permanently unreachable by accident.",
+    "",
+    "This file is re-read on every lookup, so an edit takes effect without a",
+    "server restart. That is also how the Phase 3 UI is expected to add entries:",
+    "write into user_added and the next navigation picks it up.",
+    "",
+    "The allowlist is a prompt-removal convenience, NOT a security boundary, in",
+    "the same sense as apps_whitelist.json: being listed means 'do not ask', not",
+    "'is safe'. A domain that is absent is still reachable after the user",
+    "confirms; a domain that is present is still blocked by the entries in",
+    "'blocked' below, which always win."
+  ],
+  "policy": {
+    "unknown_domain": "ask",
+    "allowlist_changes_logged": true,
+    "match_subdomains": true,
+    "match_is_case_insensitive": true,
+    "allowed_schemes": ["https", "http"],
+    "localhost_block_below_trust_level": {
+      "_comment": [
+        "SUPERSEDED — kept only so an older config file still parses.",
+        "",
+        "This key said localhost would be reachable from trust level 5. It is not,",
+        "and that was the safer of the two readings rather than the convenient one.",
+        "docs/PHASE_3_PLAN.md section 10 tests for a refusal at levels 1-4, which",
+        "leaves level 5 open, but 'open' was never the intent: the level-5 escape",
+        "hatch would mean that the single configuration in which ZUZZ is trusted to",
+        "act alone is also the configuration in which a page it opened can reach",
+        "the services running on that machine.",
+        "",
+        "So localhost, 127.0.0.1 and the private ranges are in 'blocked.exact' and",
+        "'blocked.private_ranges' below, which the guard applies at every level.",
+        "Reach ZUZZ's own local services over the API, where the gate can see the",
+        "call, rather than through a page the browser fetched.",
+        "",
+        "Set this to false to confirm you have read this and want it back."
+      ],
+      "value": false
+    },
+    "presets_removable_by_user": true
+  },
+  "presets": {
+    "google.com":              {"category": "search",     "added": "preset"},
+    "duckduckgo.com":          {"category": "search",     "added": "preset"},
+    "wikipedia.org":           {"category": "reference",  "added": "preset"},
+    "github.com":              {"category": "code",       "added": "preset"},
+    "stackoverflow.com":       {"category": "programming","added": "preset"},
+    "developer.mozilla.org":   {"category": "web_docs",   "added": "preset"},
+    "docs.python.org":         {"category": "python",     "added": "preset"},
+    "python.org":              {"category": "python",     "added": "preset"},
+    "npmjs.com":               {"category": "packages",   "added": "preset"},
+    "huggingface.co":          {"category": "ai",         "added": "preset"},
+    "ollama.com":              {"category": "ai",         "added": "preset"}
+  },
+  "user_added": {},
+  "user_removed_presets": [],
+  "explicit_command_always_asks": {
+    "_comment": [
+      "docs/PHASE_3_PLAN.md approved answers, invariant 2: an explicit user command",
+      "to go somewhere always asks, even for a domain on the list below.",
+      "",
+      "This is not redundant with 'unknown_domain: ask', because it closes the hole",
+      "the allowlist would otherwise open. An allowlist entry means 'do not ask', and",
+      "the way that goes wrong is that a URL the user typed by hand — from a link in",
+      "an email, a search result, a paste — reads identically to one ZUZZ chose for",
+      "itself. Only the first is something the user already said yes to. So when the",
+      "request carries the user's own instruction, the list is not consulted for",
+      "silence at all.",
+      "",
+      "Set this to false to let ZUZZ act on listed domains without asking even when",
+      "the user named the URL. It is a convenience switch, not a safety switch:",
+      "everything in 'blocked' still wins regardless."
+    ],
+    "value": true
+  },
+  "javascript": {
+    "_comment": [
+      "Phase 3 invariant: JavaScript is enabled on trusted domains and default-denied",
+      "on untrusted ones. A preset or user-added domain is trusted; anything else is",
+      "not, and until the user confirms it the page runs with scripting off.",
+      "",
+      "The reason this is a separate switch from the allowlist is that a page which",
+      "has been confirmed once is a page ZUZZ is now willing to *read*, and reading",
+      "is not the same as agreeing to execute whatever it fetches. Turning the",
+      "confirmation off and turning the scripting on are two different decisions, and",
+      "the UI makes only the first of them.",
+      "",
+      "'ask' is the honest middle: a page that needs scripting runs without it and",
+      "ZUZZ says so, so the user is never looking at a blank page wondering what went",
+      "wrong."
+    ],
+    "on_trusted": "allow",
+    "on_untrusted": "deny",
+    "when_user_confirms_a_domain": "ask",
+    "on_denied": "report that scripting is disabled for this page",
+    "block_images_on_untrusted": true,
+    "block_service_workers_on_untrusted": true
+  },
+  "sessions": {
+    "_comment": [
+      "Approved Session 10, Q5: session persistence is per-domain and opt-in. A",
+      "domain is written into persist_domains only when the user ticks the box on",
+      "that domain, and the 'Forget this domain' button in the UI removes it and",
+      "deletes the stored cookies.",
+      "",
+      "The default is a fresh context per session, which means no cookie from one",
+      "task is visible to the next. That is the right default for an assistant that",
+      "reads the web on the user's behalf: a site that gets a cookie does not get to",
+      "keep it, and a task that needs to be logged in asks to be.",
+      "",
+      "Stored state is encrypted at rest with a key generated on this machine on",
+      "first use and kept beside the files (storage/sessions/.session.key). The",
+      "point is not to defend against the user — it is that a directory of cookies",
+      "copied off this laptop by something else should not be a directory of cookies",
+      "that still work.",
+      "",
+      "A persisted domain never widens the allowlist: reaching the domain still",
+      "needs its own answer."
+    ],
+    "persist_domains": {},
+    "encrypt_at_rest": true,
+    "key_file": "storage/sessions/.session.key",
+    "max_persisted_domains": 25,
+    "storage_state_from_context_only": true,
+    "default_isolated": true
+  },
+  "extraction": {
+    "_comment": [
+      "Caps on what comes back out of a page. A page is attacker-chosen input of",
+      "arbitrary length, and an extractor with no cap is a way to fill the context",
+      "window with a page's contents before ZUZZ has read a word of the user's",
+      "question. Silent truncation is worse than an explicit one, so the extractor",
+      "returns a 'truncated' flag alongside the text.",
+      "",
+      "These are deliberately generous. They exist to stop a hostile page, not to",
+      "shape ZUZZ's answers — a summary of an article longer than these is a",
+      "question for the caller, not a reason for the extractor to hide the article."
+    ],
+    "max_text_chars": 200000,
+    "max_links": 500,
+    "max_table_rows": 1000,
+    "max_domains_per_navigation": 40,
+    "on_truncate": "flag it and say how much was dropped"
+  },
+  "blocked": {
+    "_comment": [
+      "Never navigable, at any trust level, and not overridable by adding the",
+      "domain to user_added. localhost and the private ranges are here because",
+      "the browser is the main exfiltration channel out of ZUZZ: a page able to",
+      "reach the LAN or the host's own services can post what it read off the",
+      "screen to somewhere the allowlist never sees.",
+      "169.254.169.254 is the cloud instance-metadata endpoint; reaching it from",
+      "a page ZUZZ opened is a credential theft primitive, not a browsing need."
+    ],
+    "exact": [
+      "localhost",
+      "127.0.0.1",
+      "0.0.0.0",
+      "::1",
+      "169.254.169.254",
+      "metadata.google.internal",
+      "instance-data"
+    ],
+    "suffix": [
+      ".local",
+      ".internal",
+      ".localhost",
+      ".home.arpa"
+    ],
+    "private_ranges": [
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16",
+      "169.254.0.0/16",
+      "fc00::/7"
+    ],
+    "blocked_schemes": [
+      "file",
+      "ftp",
+      "data",
+      "javascript",
+      "blob",
+      "chrome",
+      "view-source"
+    ]
+  },
+  "downloads": {
+    "_comment": [
+      "Approved Session 10, Q3: defence in depth. Anything the browser fetches",
+      "lands in this isolated directory first and is never written to Desktop.",
+      "It is then scored by the Amygdala classifier, and only a confirmed",
+      "file is moved anywhere else. The 'quarantine' name is deliberate: it is",
+      "not a download folder, it is a holding pen."
+    ],
+    "quarantine_dir": "storage/downloads",
+    "max_file_size_mb": 100,
+    "classify_before_release": true,
+    "require_confirmation_to_move": true,
+    "require_elevated_permission_for": [
+      ".exe", ".msi", ".bat", ".cmd", ".com", ".scr", ".ps1", ".vbs", ".js", ".jar", ".hta"
+    ],
+    "archives_are_not_inspected": {
+      "_comment": [
+        "A .zip that arrives in quarantine is NOT unpacked, scanned and approved.",
+        "That sounds helpful and is exactly the bypass: an archive can contain",
+        "setup.exe, and every classification in the list above would wave it",
+        "through. So an archive is classified by its extension only, and it stays",
+        "in the holding pen until the user does something about it by hand.",
+        "",
+        "The single exception is archives whose whole purpose is to be extracted",
+        "by a developer who has a tool for the contents — .zip and .tar.gz and",
+        ".whl, the last because pip installs it as a matter of course."
+      ],
+      "not_inspected": [
+        ".zip", ".7z", ".rar", ".gz", ".tgz", ".bz2", ".xz", ".iso", ".img",
+        ".cab", ".tar", ".dmg", ".apk", ".jar", ".war"
+      ],
+      "trusted_archives": [".zip", ".tgz", ".tar", ".gz", ".whl"],
+      "on_unknown_archive": "quarantine and say the contents were not inspected"
+    }
+  },
+  "tabs": {
+    "_comment": [
+      "Approved Session 10, Q6: bounded so a runaway loop cannot exhaust RAM/VRAM.",
+      "",
+      "The override is real and it is bounded. 'User can override' would be",
+      "meaningless if it meant 'the cap is advisory', so an override is written",
+      "down in the audit log with the domain and tab count that justified it, and",
+      "it needs its own confirmed web_automation decision rather than the one that",
+      "opened the sixth tab.",
+      "",
+      "soft_warning_at is reported to the UI and never blocks. A warning that",
+      "blocks is a cap with a worse name."
+    ],
+    "hard_cap": 5,
+    "soft_warning_at": 3,
+    "user_override_allowed": true,
+    "override_requires_separate_confirmation": true,
+    "override_is_audited": true,
+    "on_hard_cap": "refuse, and say what the override would cost"
+  }
+}

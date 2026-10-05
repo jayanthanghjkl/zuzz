@@ -51,11 +51,28 @@ __pycache__/
 htmlcov/
 
 # Runtime data — logs, memory and state are this machine's history, not source.
-storage/logs/
+#
+# logs/ and memory/ are ignored as "contents" rather than as whole directories
+# (`storage/logs/*`, not `storage/logs/`). That is deliberate: git does not
+# descend into a directory it has excluded, so a directory-level rule makes any
+# later `!storage/logs/.gitkeep` a no-op and the folder vanishes on a fresh
+# clone. Ignoring the contents instead lets the .gitkeep survive, so ZUZZ finds
+# the directories already in place.
+storage/logs/*
+!storage/logs/.gitkeep
+storage/memory/*
+!storage/memory/.gitkeep
 storage/temp/
 storage/cache/
 storage/screenshots/
-storage/memory/
+# Phase 3 runtime state. downloads/ is the quarantine every browser download
+# lands in before the Amygdala classifies it; sessions/ holds per-domain browser
+# cookies. Both are per-machine state and neither belongs in the repository.
+storage/downloads/
+storage/sessions/
+# Stop flags. `storage/*.flag` also covers storage/stop.flag; listing it
+# separately would be redundant.
+storage/*.flag
 # Switch and trust state. Committing these would ship one machine's kill-switch
 # posture to everyone else's first run.
 storage/kill_switch.json

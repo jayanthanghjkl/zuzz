@@ -125,6 +125,17 @@ def get_trust_levels() -> Dict[str, Any]:
     return _read_json("trust_levels.json")
 
 
+def get_vision_thresholds() -> Dict[str, Any]:
+    """Return vision confidence thresholds from ``config/vision_thresholds.json``.
+
+    Not memoised, for the reason every other safety config here is not: the
+    Occipital Lobe asks this question on every element lookup and OCR read, and a
+    threshold the user tuned on real hardware must not need a server restart to
+    take effect.
+    """
+    return _read_json("vision_thresholds.json")
+
+
 def env(name: str, default: str = "") -> str:
     """Read an environment variable, falling back to ``default``.
 

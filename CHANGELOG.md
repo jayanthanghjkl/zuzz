@@ -1,4 +1,4 @@
---
+ï»¿--
 
 ### File 2: `C:\ZUZZ\CHANGELOG.md`
 
@@ -27,7 +27,120 @@ This file is automatically updated by the AI assistant. It tracks every change m
 
 ---
 
-## [2026-10-04] Session 12 — Agent Action Loop
+## [2026-10-05] Merge ï¿½ Sessions 1-3: Phase 3 Step 1 and Step 2
+
+Three parallel sessions merged. ZUZZ can now see the screen and drive a real browser,
+both behind the same gate everything else uses. Three bugs found and fixed during the
+merge, one of them a 400 on every vision capture.
+
+### Added
+
+**Occipital Lobe** (`brain/occipital_lobe/`, 31 modules) ï¿½ screen capture through `mss`,
+element location, OCR, before/after comparison, and a classifier that decides whether a
+frame may be written to disk. Five invariants are enforced by a module rather than by a
+convention: the permission decision is the *signature* of every public method, so no
+caller can reach the framebuffer by accident; crops are refused rather than clamped,
+because a clamped crop is a picture of something other than what was asked for; the
+Hypothalamus is asked about VRAM *before* the model loads; screen text arrives as
+`UntrustedText` and never becomes reasoning; and confidence is derived from observable
+evidence rather than invented ï¿½ an answer with no stated confidence scores 0.0, not a
+default. Eight API routes in `face/api/routes_vision.py`.
+
+**Body/Legs** (`body/legs/`, 11 modules) ï¿½ a real browser via Playwright. Navigation,
+clicking, form filling, extraction, search, downloads into quarantine, tabs, and a URL
+guard that refuses link-local and metadata addresses outright. Seventeen routes, split
+by user intent rather than line count.
+
+### Fixed
+
+**`POST /api/vision/capture` returned 400 on every call.** `OccipitalLobe.__init__`
+assigned the screenshot engine to `self.capture`, and an instance attribute shadows a
+class method of the same name ï¿½ so `lobe.capture(decision, ...)` resolved to the
+`ScreenCapture` *object* and raised `'ScreenCapture' object is not callable`. The public
+`capture()` method was unreachable from every caller. Nothing else noticed, because the
+other call sites reached the engine directly and a shadowed attribute still reads
+correctly for `.store` and `.monitors`. The engine is now `self.engine`, which is also
+what `routes_browser_manage.py` reads when a browser frame is stored. Two regression
+tests: one asserting `lobe.capture` is callable, one asserting every documented method is
+a bound method rather than a collaborator.
+
+**The bracketed-box parse path was dead code.** `_Named` was documented as "a match shim,
+so both parse paths yield the same shape", but `_numbers` reads `match["x1"]` while
+`_Named` only had attributes ï¿½ so every `[x, y, x, y]` answer, which is the shape
+Moondream volunteers most often, was reported as "the box was not four numbers". `_Named`
+now implements `__getitem__` and `groupdict`.
+
+**The identity line taught the model to invent a username in a path.** `BASE_IDENTITY`
+said "running on Jayanthan's Windows laptop", and the local models reliably expanded the
+name into a matching capitalised folder: a live request to create a file on the Desktop
+emitted `C:/Users/Jayanthan/Desktop/hello.txt`, which does not exist. The prompt now
+names the account literally (`jayan's`) and `SAFETY_RULES` carries the resolved path
+`C:\Users\jayan`. A test asserts the full name appears nowhere in the prompt.
+
+**The same shadowing reached two more places, and one of them was a dead parameter.**
+`server.py` handed Body/Legs its screenshot store with
+`getattr(getattr(lobe, "capture", None), "store", None)` â€” a chain written specifically so
+a region that failed to build would not take the app down, which makes it silent by
+design. It read the shadowed attribute, and once the engine was renamed it returned
+`None` without any error. `routes_browser_manage.py` had the same read. Both now use
+`engine`, and a test asserts `app.state.legs.store is app.state.occipital_lobe.engine.store`.
+
+Underneath that, `BrowserActions.__init__` **accepted** a `store` and never assigned it,
+while its own docstring said it was "for `screenshot(store=...)`". The parameter was dead:
+the store only ever reached `screenshot()` because the route passed it explicitly, which
+is why the bug stayed invisible. It is now kept as `self.store` and used as the default,
+and a caller can pass `store=False` for a memory-only frame on a stack that has a store
+wired.
+
+### Changed
+
+`face/api/routes_browser.py` split from 601 lines into four files: `routes_browser_nav`
+(177), `routes_browser_interact` (148), `routes_browser_manage` (190), and a 31-line
+router that includes the other three. All seventeen routes preserved, all docstrings
+kept.
+
+`tests/test_integration.py::test_classify_endpoint` no longer depends on the CI
+machine's connectivity. It asserted `"debug this stack trace"` classifies at L3 or above,
+but `/api/classify` consults a real network probe, and with no internet the analyzer
+caps every level at 2 *by design* ï¿½ so the assertion was testing the network, not the
+classifier. Connectivity is now stubbed, the original assertion is kept, and a second
+test pins the offline cap so the fallback stays deliberate rather than accidental.
+
+### Notes
+
+**Live verification, 2026-10-05, trust level 4.**
+
+| Scenario | Result |
+|---|---|
+| Capture the screen | Real 1920x1080 frame, 555 KB PNG, classified `safe`, stored. Confirms the shadowing fix. |
+| Open a browser | Real Chromium, session live, gate asked first (`browse_internet` asks until level 5) and approved. |
+| Navigate | Gate asked for the permission *and* separately for the un-allowlisted domain. |
+| Extract page text | Read the live page, including its own error page. Did not fabricate. |
+| Browser screenshot | Real PNG stored through the Occipital store. Confirms the `engine` fix in the browser route. |
+| Metadata address | HTTP 403, "never navigable from ZUZZ's browser". |
+| `Delete C:\Windows` | **Blocked by immutable rule R1** at trust 4 ï¿½ `allowed: false`, `decision: "blocked"`, `rule_id: "R1"`. |
+
+The browser search returned 502 on a 30s `Page.goto` timeout because this machine has no
+outbound internet egress. That is the environment, not the code, and it is the same fact
+that capped the classify test.
+
+**The remaining gap.** Neither subsystem is in the model's tool catalogue, which still
+lists the original 15 tools. So a chat reply cannot reach the Occipital Lobe or the
+browser at all ï¿½ "What do you see on my screen?" is answered by `qwen2.5-coder:3b` from
+nothing, inventing a description rather than saying it cannot see. Both subsystems work
+perfectly through their own API; what is missing is the wiring that exposes them to the
+Cerebrum. This is the next session's work and it is the single highest-value change
+available.
+
+`Moondream` is not pulled, so `/api/vision/describe` will not answer until
+`ollama pull moondream`. The VRAM check already reports that it fits in the 3108 MB free.
+
+**Tests: 1122 passing, 2 skipped (symlink), 0 failures.** 244 Python files, 56,716
+lines (41,063 source, 15,653 test).
+
+---
+
+## [2026-10-04] Session 12 ï¿½ Agent Action Loop
 
 ZUZZ executes actions, not just chat. Fifteen tools, every one of them through the
 same Prefrontal Cortex gate the Desktop and Files tabs already used. Verified live
@@ -42,7 +155,7 @@ on this machine.
 `brain/cerebrum/action_parser.py` could not be imported at all. Every one of the 15
 tools was described to the model, the prompt told it to emit action blocks, and
 not a single block could ever be parsed. The registry smoke test passed anyway
-because it never touched the parser — which is why this survived.
+because it never touched the parser ï¿½ which is why this survived.
 
 The error type is now owned by `brain/cerebrum/tools_coercion.py`, at the bottom
 of the dependency chain, and everything else refers to it. `tools_coerce.py` is
@@ -68,7 +181,7 @@ clipboard. Now probed through a helper that refuses legibly instead.
 
 ### Changed
 
-**`OSError` in the execute path** — see above.
+**`OSError` in the execute path** ï¿½ see above.
 
 **Dropped action blocks are `errors`, not `warnings`.** They were requested actions
 that did not happen. Filing them beside "this application is not whitelisted"
@@ -82,7 +195,7 @@ its own scheduling; a chat answer needs RAM, VRAM, CPU, GPU and disk.
 **`ChatActionRunner` holds its own gate.** `app.state.permission_gate` is shared
 with the Hypothalamus for model management, and reaching it from a chat action
 would couple "may ZUZZ click this" to "may the resource layer evict a model".
-Both read the same matrix and the same kill switch, so the answers agree — but
+Both read the same matrix and the same kill switch, so the answers agree ï¿½ but
 they are two questions.
 
 ### Added
@@ -92,37 +205,37 @@ they are two questions.
 | `face/api/chat_actions.py` | 560 | the orchestrator: parse ? resolve ? assess ? decide ? confirm ? execute ? report |
 | `tests/test_action_loop.py` | 480 | 13 tests, incl. the 12 required |
 
-**`face/api/chat_actions.py`** — one place in the codebase where a chat turn can
+**`face/api/chat_actions.py`** ï¿½ one place in the codebase where a chat turn can
 touch the machine, and it is the place with the gate in it. Holds
 `ChatActionRunner`, `ActionOutcome`, and `PendingActionConfirmations` (create/pop,
 capped at 10, in-memory so a restart cannot turn an unanswered popup into an
 approval). Every action is written to the activity logger; the safety-relevant
 outcomes additionally to the audit log. Successful executions deliberately are
-not, for the reason `routes_hands` already gives — the audit log records what was
+not, for the reason `routes_hands` already gives ï¿½ the audit log records what was
 refused and what was confirmed, and routine successes would bury both.
 
-**`POST /api/chat/confirm`** — `{confirmation_id, approval}`. Pops first, so the
+**`POST /api/chat/confirm`** ï¿½ `{confirmation_id, approval}`. Pops first, so the
 answer and the removal are one step and a replay finds nothing. Re-decides from
 scratch: a fresh resolve, a fresh Amygdala pass, a fresh gate call at the current
 trust level. A stop that landed while the popup was open still blocks, and a path
 that pointed somewhere harmless a minute ago is re-classified rather than trusted.
 
-**`POST /api/chat`** — now returns `{response, actions:{...}}`, with every action
+**`POST /api/chat`** ï¿½ now returns `{response, actions:{...}}`, with every action
 fence stripped from `response`.
 
-**WebSocket `actions` event** — after `done`, carrying the authoritative prose and
+**WebSocket `actions` event** ï¿½ after `done`, carrying the authoritative prose and
 the four buckets. Tokens still stream verbatim so the UI stays responsive; the
 client replaces what it streamed when the event lands, so raw JSON is on screen
 for the length of one reply and never in the scrollback. Not emitted at all for a
 conversational reply.
 
-**Frontend** — `chat.js` gained an action rail rendered *outside* the speech
+**Frontend** ï¿½ `chat.js` gained an action rail rendered *outside* the speech
 bubble, because a bubble reads as something ZUZZ said and a badge is something
 ZUZZ did. Per-status left border, inline confirmation buttons on `pending` rows,
 and a partial-fence stripper so the protocol is never visible mid-stream.
 `app.js` handles `actions` and `refused`.
 
-**Tests** — the 12 required plus one for the parent-folder bug found live.
+**Tests** ï¿½ the 12 required plus one for the parent-folder bug found live.
 
 ### Notes
 
@@ -137,15 +250,15 @@ Live verification, trust level 3, `qwen3.5:4b` local:
 Two things worth fixing next, both recorded in PROJECT.md section 18:
 
 * **`core/paths.py` does not protect volume roots.** `C:\` classifies as `safe`,
-  so a delete of it parks for approval rather than being refused. It fails safe —
+  so a delete of it parks for approval rather than being refused. It fails safe ï¿½
   `delete_files` asks at every level, and `TrashManager` cannot move a volume root
-  into itself — but the prompt is unnecessary. Add the roots to
+  into itself ï¿½ but the prompt is unnecessary. Add the roots to
   `PROTECTED_PREFIXES`.
 * **The identity line teaches the model to invent a path.** `BASE_IDENTITY` says
   "running on Jayanthan's Windows laptop". The Windows account is `jayan`, and
   `qwen3.5:4b` read that as a directory: asked to create `hello.txt` on the
   Desktop it emitted `C:/Users/Jayanthan/Desktop/hello.txt`. The refusal was
-  correct and legible, which is the system working — but the prompt is the cause.
+  correct and legible, which is the system working ï¿½ but the prompt is the cause.
 
 ### Next Steps
 

@@ -21,6 +21,7 @@ from brain.brainstem.heartbeat import Heartbeat
 from brain.brainstem.process_manager import ProcessManager
 from brain.brainstem.scheduler import Scheduler
 from brain.hypothalamus.hypothalamus import Hypothalamus
+from brain.occipital_lobe.occipital_lobe import OccipitalLobe
 from brain.prefrontal_cortex.immutable_rules import IntegrityError, verify
 from brain.prefrontal_cortex.permission_gate import PermissionGate
 from brain.prefrontal_cortex.trust_manager import TrustManager
@@ -30,11 +31,13 @@ from brain.spinal_cord.watchdog import Watchdog
 from brain.thalamus.router import Router
 from body.fingers import DirectoryManager, FileManager, TrashManager
 from body.hands import Hands
+from body.legs import BrowserActions
 from core.audit import get_audit_log
 from core.config import ROOT, get_settings
 from face.api import (
     routes_assess,
     routes_brain,
+    routes_browser,
     routes_chat,
     routes_files,
     routes_hands,
@@ -43,6 +46,7 @@ from face.api import (
     routes_resources,
     routes_safety,
     routes_settings,
+    routes_vision,
 )
 from face.api.file_confirmations import PendingConfirmations
 
@@ -188,6 +192,39 @@ def create_app() -> FastAPI:
     # The bridge asks the same switch object the gate does, so the dashboard
     # cannot show providers running while the gate is denying everything.
     app.state.thalamus.cerebrum.bridge.kill_switch = app.state.kill_switch
+    # The Occipital Lobe. Given the app's own switch, audit log, logger and
+    # Hypothalamus, so a screenshot is refused by the same stop that stops every
+    # other action and its model is loaded by the same resource layer that already
+    # knows whether Moondream fits. It is deliberately *not* given the gate: the
+    # region verifies decisions, it does not make them, and a second gate inside it
+    # would be a second reading of the matrix. Built after ``calibrate()`` so the
+    # VRAM figures it checks against are the measured ones rather than estimates.
+    app.state.occipital_lobe = OccipitalLobe(
+        kill_switch=app.state.kill_switch,
+        audit=app.state.audit,
+        logger=app.state.logger,
+        hypothalamus=app.state.hypothalamus,
+    )
+    # The Legs layer: the browser. Built here rather than inside the Body because it
+    # needs collaborators that do not all exist until this point in the app — the
+    # app's own trust manager, so a click is judged by the same trust level as a file
+    # write, the Hands layer, so a download lands through the same classification and
+    # quarantine path as any other file, and the Occipital Lobe, which supplies the
+    # screenshot store. Built after all three so every reference is to a live object
+    # rather than to a None placeholder assigned now and filled in later. The
+    # permission gate is deliberately *not* handed to it: the routes decide and the
+    # routes audit, and a second gate inside the Body would be a second reading of the
+    # matrix.
+    app.state.legs = BrowserActions(
+        kill_switch=app.state.kill_switch,
+        logger=app.state.logger,
+        file_manager=app.state.file_manager,
+        trust_manager=app.state.trust,
+        # ``engine``, not ``capture``: on the Occipital Lobe ``capture`` is the
+        # public method that takes a decision, and the screenshot store hangs off the
+        # capture engine. Reading the shadowed attribute looked right and passed None.
+        store=getattr(getattr(app.state.occipital_lobe, "engine", None), "store", None),
+    )
     # Refuse to serve rather than run unguarded: an altered rule set means the
     # safety layer is not the one that was approved.
     try:
@@ -205,6 +242,8 @@ def create_app() -> FastAPI:
     app.include_router(routes_files.router)
     app.include_router(routes_hands.router)
     app.include_router(routes_resources.router)
+    app.include_router(routes_vision.router)
+    app.include_router(routes_browser.router)
 
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
