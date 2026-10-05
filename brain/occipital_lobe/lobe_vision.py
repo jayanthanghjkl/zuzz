@@ -108,7 +108,9 @@ class LobeVision:
             decision, vision_guards.target_for("describe", monitor, region), self.kill_switch
         )
         self.admit()
-        capture = self.capture.capture(decision, monitor=monitor, region=region, label="describe")
+        capture = self.capture.capture(
+            decision, monitor=monitor, region=region, label="describe", operation="describe"
+        )
         reply = await self.client.ask("describe", [capture.image], question=question)
         source = vision_guards.target_for("describe", monitor, region)
         confidence = plausible_confidence(reply.text)
@@ -149,7 +151,9 @@ class LobeVision:
             decision, vision_guards.target_for("find", monitor, region), self.kill_switch
         )
         self.admit()
-        capture = self.capture.capture(decision, monitor=monitor, region=region, label="find")
+        capture = self.capture.capture(
+            decision, monitor=monitor, region=region, label="find", operation="find"
+        )
         return await self.finder.locate(decision, capture, description, FIND_JOB)
 
     async def read_text(
@@ -173,5 +177,7 @@ class LobeVision:
             decision, vision_guards.target_for("ocr", monitor, region), self.kill_switch
         )
         self.admit()
-        capture = self.capture.capture(decision, monitor=monitor, region=region, label="ocr")
+        capture = self.capture.capture(
+            decision, monitor=monitor, region=region, label="ocr", operation="ocr"
+        )
         return await self.ocr.read(decision, capture, region, OCR_JOB)

@@ -170,11 +170,21 @@ Each provider reports `healthy`, `degraded`, `offline`, `rate_limited` or
 
 ## 10. Phase 3 Extra Setup (vision + browser)
 
-Phase 3 is not started yet. Everything below can be prepared now so that Step 1
-does not stall on it.
+Phase 3 is built and live-verified (Session 13). This section is what a machine
+needs before the vision and browser tools will actually do anything.
 
-The vision and browser packages are already in `requirements.txt`, so step 1
-covers them. Two things are **not** covered by pip:
+The Python packages are in `requirements.txt`. Two things are **not** covered by
+pip, and one of them is easy to miss:
+
+> **If `pip install -r requirements.txt` was run against a stale environment,
+> `playwright` and `mss` may be missing while the code that imports them looks
+> perfectly installed.** Both were missing on the Session 13 machine: every
+> browser tool failed at launch and every screen capture failed with
+> "mss is not installed - run: pip install mss". Check them explicitly:
+
+```powershell
+python -c "import mss, playwright; print('capture + browser deps OK')"
+```
 
 ### 10a. Chromium for Playwright
 
@@ -213,6 +223,28 @@ Moondream's confidence falls under the OCR threshold:
 ollama pull moondream
 ```
 
+**Verified on the Session 13 machine.** Installed: `moondream:latest`, 1.7 GB.
+The Hypothalamus admits it without comment:
+
+```
+required_vram_mb  1600
+available_vram_mb 3108
+fits              true
+percent_used      34.7
+reason            moondream fits in 3108MB free
+```
+
+Two things worth knowing before you trust a screen description:
+
+* **The first call is slow, and the rest are fast.** Loading 1.7 GB of weights
+  into VRAM took 16.7s cold. A warm answer is ~1.5s. `DEFAULT_TIMEOUT` is 90s
+  for that reason — the old 45s ceiling refused legitimate work on a cold start.
+* **Moondream describes reliably and reads unreliably at full-screen.** Given a
+  1920x1080 desktop it degenerates into a repeated token; given a 640x400 crop it
+  returns a specific and correct answer. So `vision_describe_screen` should be
+  given a `region`, and reading text is `vision_read_text`'s job — that is what the
+  Tesseract ladder below is for.
+
 ### 10d. Phase 3 configuration
 
 Two files ship with the decisions already recorded in them:
@@ -228,16 +260,31 @@ values in it are starting guesses made before any screenshot had been taken.
 
 ---
 
+### 10e. Applications and where they actually live
+
+`config/apps_whitelist.json` maps what you type to what gets launched, and the
+values are bare names — so ZUZZ resolves each one at launch time, `PATH` first
+and then `KNOWN_APP_PATHS` in `body/hands/app_registry.py`.
+
+The second step is not belt-and-braces. The Chrome, Firefox and Edge installers
+deliberately do **not** put themselves on `PATH`, so without it "open Chrome"
+resolved to `chrome.exe`, which cannot be launched. If you install something new
+whose installer does not use `PATH`, add its location to that table.
+
+---
+
 ## 11. What Is Not Built Yet
 
-Phases 1 and 2 are built. Phase 2 is code-complete and still awaiting its live
-hardware verification. These do not exist yet, even though the folders are there:
+Phases 1, 2 and 3 are built, and all three have been verified against real
+hardware. ZUZZ can see the screen and drive a real browser, with 35 tools
+reachable from chat. These do not exist yet:
 
-- **Vision** (screenshots, Moondream, OCR) — Phase 3
-- **Browser automation** (Playwright, navigation, extraction) — Phase 3
 - **Memory** (conversation history on disk, semantic search) — Phase 6
 - **Encrypted key entry from the web UI** — the vault (`api_vault.py`) works and
   is tested, but connectors still read keys from `.env`
+- **System awareness** ("what is this machine doing") — Phase 3 Step 3
+- **Coding engine** — Phase 4
+- **Voice** — Phase 5
 
 Chat currently keeps history in RAM only, per session.
 

@@ -26,7 +26,7 @@ __all__ = ["TOOL_SCHEMAS", "schema_for"]
 
 #: Every tool ZUZZ can be asked to run, in catalogue order. The order is the
 #: order the prompt lists them, so it is grouped the way a person would group
-#: them: pointer, keyboard, clipboard, applications, files, then the machine.
+#: them: pointer, keyboard, clipboard, applications, files, vision, browser, then the machine.
 TOOL_SCHEMAS: Tuple[Dict[str, Any], ...] = (
     tool(
         "mouse_click",
@@ -132,6 +132,211 @@ TOOL_SCHEMAS: Tuple[Dict[str, Any], ...] = (
             ),
         },
         ("pattern", "root"),
+    ),
+    # Vision tools (Session 2)
+    tool(
+        "vision_capture_screen",
+        "Take a screenshot of a monitor or region.",
+        {
+            "monitor": integer("Zero-based monitor index"),
+            "region": {
+                "type": "object",
+                "description": "Optional region as {x, y, width, height} in monitor-local pixels",
+                "properties": {
+                    "x": integer("Left"),
+                    "y": integer("Top"),
+                    "width": integer("Width"),
+                    "height": integer("Height"),
+                },
+                "required": ["x", "y", "width", "height"],
+            },
+        },
+    ),
+    tool(
+        "vision_describe_screen",
+        "Describe what is on the screen in natural language.",
+        {
+            "monitor": integer("Zero-based monitor index"),
+            "prompt": string("Optional focus question, e.g. 'what is this dialog asking'"),
+            "region": {
+                "type": "object",
+                "description": "Optional region as {x, y, width, height} in monitor-local pixels",
+                "properties": {
+                    "x": integer("Left"),
+                    "y": integer("Top"),
+                    "width": integer("Width"),
+                    "height": integer("Height"),
+                },
+                "required": ["x", "y", "width", "height"],
+            },
+        },
+    ),
+    tool(
+        "vision_find_element",
+        "Locate a UI element by description and return its coordinates.",
+        {
+            "description": string("What to look for, in the user's words"),
+            "monitor": integer("Zero-based monitor index"),
+        },
+        ("description",),
+    ),
+    tool(
+        "vision_read_text",
+        "Extract text from a screen region using OCR.",
+        {
+            "region": {
+                "type": "object",
+                "description": "Region as {x, y, width, height} in monitor-local pixels",
+                "properties": {
+                    "x": integer("Left"),
+                    "y": integer("Top"),
+                    "width": integer("Width"),
+                    "height": integer("Height"),
+                },
+                "required": ["x", "y", "width", "height"],
+            },
+            "source": enum("Source of the image", "current", "stored"),
+        },
+        ("region",),
+    ),
+    tool(
+        "vision_verify_changed",
+        "Compare two screenshots to verify a state change.",
+        {
+            "before": string("First capture identifier (path, bytes, or stored name)"),
+            "after": string("Second capture identifier (path, bytes, or stored name)"),
+        },
+        ("before", "after"),
+    ),
+    # Browser tools (Session 3)
+    tool(
+        "browser_open",
+        "Launch a browser session.",
+        {
+            "headless": enum("Run without a visible window", "false", "true"),
+        },
+    ),
+    tool(
+        "browser_navigate",
+        "Go to a URL in an open browser session.",
+        {
+            "url": string("The URL to navigate to"),
+            "session_id": string("Optional session ID; uses the most recent if omitted"),
+        },
+        ("url",),
+    ),
+    tool(
+        "browser_click",
+        "Click an element on the page by selector or visible text.",
+        {
+            "selector_or_text": string("CSS selector or visible text of the element to click"),
+            "session_id": string("Optional session ID"),
+        },
+        ("selector_or_text",),
+    ),
+    tool(
+        "browser_fill_form",
+        "Fill form fields on the current page.",
+        {
+            "form_data": {
+                "type": "object",
+                "description": "Field identifiers mapped to values",
+                "additionalProperties": {"type": "string"},
+            },
+            "session_id": string("Optional session ID"),
+        },
+        ("form_data",),
+    ),
+    tool(
+        "browser_extract_text",
+        "Extract text from a page element.",
+        {
+            "selector": string("CSS selector of the element to extract text from"),
+            "session_id": string("Optional session ID"),
+        },
+        ("selector",),
+    ),
+    tool(
+        "browser_extract_links",
+        "Get all links on the current page.",
+        {
+            "session_id": string("Optional session ID"),
+        },
+    ),
+    tool(
+        "browser_search_web",
+        "Perform a web search.",
+        {
+            "query": string("What to search for"),
+            "engine": enum("Search engine", "google", "duckduckgo", "bing"),
+            "session_id": string("Optional session ID"),
+        },
+        ("query",),
+    ),
+    tool(
+        "browser_download",
+        "Download a file through the Fingers classifier into quarantine.",
+        {
+            "url": string("The URL to download"),
+            "session_id": string("Optional session ID"),
+        },
+        ("url",),
+    ),
+    tool(
+        "browser_screenshot",
+        "Take a screenshot of the current browser view.",
+        {
+            "session_id": string("Optional session ID"),
+            "full_page": enum("Capture the full scrollable page", "false", "true"),
+        },
+    ),
+    tool(
+        "browser_list_tabs",
+        "List all open tabs in a session.",
+        {
+            "session_id": string("Optional session ID"),
+        },
+    ),
+    tool(
+        "browser_switch_tab",
+        "Switch the active tab.",
+        {
+            "tab_id": string("Tab index or ID to switch to"),
+            "session_id": string("Optional session ID"),
+        },
+        ("tab_id",),
+    ),
+    tool(
+        "browser_close_tab",
+        "Close a specific tab.",
+        {
+            "tab_id": string("Tab index or ID to close"),
+            "session_id": string("Optional session ID"),
+        },
+        ("tab_id",),
+    ),
+    tool(
+        "browser_close",
+        "Close a browser session.",
+        {
+            "session_id": string("Optional session ID"),
+        },
+    ),
+    tool(
+        "browser_scroll",
+        "Scroll the page up or down.",
+        {
+            "amount": integer("Pixels to scroll; negative goes up"),
+            "session_id": string("Optional session ID"),
+        },
+        ("amount",),
+    ),
+    tool(
+        "browser_get_session_status",
+        "Get current session info (URL, tabs, allowlist).",
+        {
+            "session_id": string("Optional session ID"),
+        },
     ),
     tool(
         "get_system_resources",

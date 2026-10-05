@@ -269,10 +269,20 @@ class TestResolutionPrecedesTheGate:
     """The gate decides about the executable, not the alias."""
 
     def test_an_alias_launches_its_executable(self, client) -> None:
-        """``chrome`` launches ``chrome.exe`` and the decision names the latter."""
+        """``chrome`` launches the executable it resolves to, and that is what is judged.
+
+        The expected value comes from the resolver rather than being written out
+        as ``chrome.exe``, because resolution is a fact about the machine: Chrome,
+        Firefox and Edge do not put themselves on ``PATH``, so on a machine with
+        Chrome installed ``chrome`` resolves to its full install path. Hard-coding
+        the bare name here tested a world where "open Chrome" could not work.
+        """
+        from body.hands.app_registry import resolve_app
+
+        expected = resolve_app("chrome")["executable"]
         response = client.post("/api/hands/open-app", json={"name": "chrome"})
         assert response.status_code == 200, response.text
-        assert client.app.state.hands.apps.launcher.launched == ["chrome.exe"]
+        assert client.app.state.hands.apps.launcher.launched == [expected]
 
 
 class TestTheFrontendAgreesWithTheRoutes:

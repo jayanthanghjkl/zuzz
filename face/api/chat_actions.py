@@ -21,7 +21,12 @@ through seven steps, in this order, and the order is the safety property:
    ``confirmation_id``. Nothing executes.
 6. **Body execute.** ``ToolSpec.execute`` is called with an allowed decision and
    with nothing else — and the Body re-verifies that decision against the same
-   category and target before it touches anything.
+   category and target before it touches anything. Fifteen of the thirty-five
+   tools are coroutines — everything the browser and the Occipital Lobe does —
+   so this step awaits, which is why the runner's methods are ``async`` and the
+   routes are too. A Playwright launch takes seconds; running it inline on the
+   event loop would stall every other request on the server while one browser
+   opened.
 7. **Return the result.** As ``executed`` / ``blocked`` / ``pending`` / ``errors``
    / ``warnings`` / ``summary``.
 
@@ -38,6 +43,7 @@ in it would bury both.
 
 from __future__ import annotations
 
+import inspect
 import threading
 import time
 from dataclasses import dataclass, field, replace
@@ -63,7 +69,9 @@ from core.audit import (
 
 from body.fingers.exceptions import BodyRefused
 from body.hands.exceptions import HandsRefused
+from body.legs.exceptions import LegsRefused
 from body.tools import ToolContext, ToolRefused, ToolSpec, get_registry
+from brain.occipital_lobe.exceptions import VisionRefused
 
 __all__ = [
     "ActionOutcome",
@@ -268,6 +276,13 @@ class ChatActionRunner:
             files=self.state.file_manager,
             directories=self.state.directory_manager,
             hypothalamus=self.state.hypothalamus,
+            # The vision and browser tools reach the Occipital Lobe and the Legs
+            # layer through here. Without them the two families are registered but
+            # unreachable: the model is told about a capability, calls it, and is
+            # refused with "not attached" — which is how a capable agent starts
+            # claiming it saw a screen it never captured.
+            occipital_lobe=getattr(self.state, "occipital_lobe", None),
+            browser=getattr(self.state, "legs", None),
         )
 
     # -----------------------------------------------------------------
@@ -299,7 +314,7 @@ class ChatActionRunner:
     # The pipeline
     # -----------------------------------------------------------------
 
-    def run_reply(self, text: str) -> Dict[str, Any]:
+    async def run_reply(self, text: str) -> Dict[str, Any]:
         """Parse a model reply and run every action it asked for.
 
         Args:
@@ -338,7 +353,7 @@ class ChatActionRunner:
             )
 
         for call in parsed.calls:
-            outcome = self.run_call(call)
+            outcome = await self.run_call(call)
             for warning in outcome.warnings:
                 if warning not in warnings:
                     warnings.append(warning)
@@ -365,7 +380,7 @@ class ChatActionRunner:
             "has_actions": parsed.has_actions or bool(parsed.dropped),
         }
 
-    def run_call(self, call: ToolCall) -> ActionOutcome:
+    async def run_call(self, call: ToolCall) -> ActionOutcome:
         """Run one call through resolve, assess, decide, confirm, execute.
 
         Args:
@@ -470,9 +485,9 @@ class ChatActionRunner:
                 warnings=warnings,
             )
 
-        return self._execute(spec, call, decision, target, warnings)
+        return await self._execute(spec, call, decision, target, warnings)
 
-    def confirm(
+    async def confirm(
         self, confirmation_id: str, approval: bool
     ) -> Dict[str, Any]:
         """Answer a parked confirmation and act on it.
@@ -621,14 +636,14 @@ class ChatActionRunner:
             requires_confirmation=False,
             decision=AUTO,
         )
-        outcome = self._execute(spec, call, granted, target, warnings)
+        outcome = await self._execute(spec, call, granted, target, warnings)
         return self._envelope(prose="", outcomes=[outcome])
 
     # -----------------------------------------------------------------
     # Execution
     # -----------------------------------------------------------------
 
-    def _execute(
+    async def _execute(
         self,
         spec: ToolSpec,
         call: ToolCall,
@@ -652,13 +667,36 @@ class ChatActionRunner:
         """
         context = self.tool_context()
         try:
+            # Awaited unconditionally rather than only when the tool looks
+            # async. A coroutine that is merely *called* returns an un-awaited
+            # object, which serialises as a repr instead of a result — so the
+            # tool would be reported as executed while doing nothing at all.
+            # That is precisely the hallucination this pipeline exists to
+            # prevent, and it is why the await is here rather than in the tools.
             result = spec.execute(decision, call.params, context)
-        except (HandsRefused, BodyRefused, ToolRefused, ValueError, OSError) as exc:
+            if inspect.isawaitable(result):
+                result = await result
+        except (
+            HandsRefused,
+            BodyRefused,
+            ToolRefused,
+            VisionRefused,
+            LegsRefused,
+            ValueError,
+            OSError,
+        ) as exc:
             # ``OSError`` is in this list on purpose. A write to a path whose
             # parent does not exist, or a read of a file that was deleted between
             # the gate and the call, is a fact about the world that the user can
             # act on — it is not a defect, and reporting it as "internal error,
             # see the activity log" hides the only useful part of the answer.
+            #
+            # ``VisionRefused`` and ``LegsRefused`` are here for the same reason,
+            # and it is the anti-hallucination requirement made concrete. "Moondream
+            # is not running" and "no browser session is open" are answers the user
+            # can act on; a generic internal-error badge is indistinguishable from
+            # ZUZZ failing silently, which is the outcome the whole pipeline exists
+            # to rule out. A refusal must be *said*, in its own words.
             self._audit(
                 BLOCKED,
                 str(exc),

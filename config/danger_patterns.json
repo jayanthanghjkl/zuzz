@@ -24,7 +24,7 @@
     {"id": "recursive_delete", "regex": "\\brm\\s+(-[a-z]*[rf][a-z]*\\s+)+", "applies_to": ["run_safe_commands", "run_python"]},
     {"id": "root_wipe", "regex": "(?:\\s|^)(?:/\\*?|~|~/|[A-Za-z]:\\\\?)\\s*$", "applies_to": ["run_safe_commands", "run_python"]},
     {"id": "recursive_delete_windows", "regex": "\\b(del|rd|rmdir)\\b[^\\n]{0,40}(?<!\\w)/s(?!\\w)", "applies_to": ["run_safe_commands", "run_python"]},
-    {"id": "system_path", "regex": "[a-z]:\\\\(windows|program files|programdata|\\$recycle\\.bin)", "applies_to": ["all"]},
+    {"id": "system_path", "regex": "[a-z]:\\\\(windows|program files|programdata|\\$recycle\\.bin)", "applies_to": ["all"], "except": ["open_apps", "close_apps"]},
     {"id": "disk_utility", "regex": "\\b(diskpart|format|fsutil|cipher)\\b", "applies_to": ["run_safe_commands", "run_python", "install_software"]},
     {"id": "registry_write", "regex": "\\breg\\s+(add|delete|import|edit)\\b", "applies_to": ["run_safe_commands", "run_python"]},
     {"id": "power_state", "regex": "\\b(shutdown|reboot|halt|restart-computer)\\b", "applies_to": ["run_safe_commands", "run_python"]},

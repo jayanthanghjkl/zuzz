@@ -182,6 +182,10 @@ def coerce_value(name: str, key: str, value: Any, declared: Dict[str, Any]) -> A
         if isinstance(value, bool):
             return value
         raise ToolParamError(f"{where} must be true or false")
+    if declared_type == "object":
+        if isinstance(value, dict):
+            return value
+        raise ToolParamError(f"{where} must be an object, got {type(value).__name__}")
     return as_string(where, value)
 
 

@@ -18,12 +18,14 @@ from brain.cerebrum.tool_catalogue import TOOL_NAMES
 from brain.cerebrum.tools_schema import schema_for
 
 from body.tools.app_tools import APP_TOOLS
+from body.tools.browser_tools import BROWSER_TOOLS
 from body.tools.clipboard_tools import CLIPBOARD_TOOLS
 from body.tools.file_tools import FILE_TOOLS
 from body.tools.keyboard_tools import KEYBOARD_TOOLS
 from body.tools.mouse_tools import MOUSE_TOOLS
 from body.tools.system_tools import SYSTEM_TOOLS
 from body.tools.tool_spec import ToolSpec
+from body.tools.vision_tools import VISION_TOOLS
 
 __all__ = ["ToolRegistry", "catalogue_mismatches", "get_registry"]
 
@@ -111,6 +113,8 @@ def get_registry() -> ToolRegistry:
             + CLIPBOARD_TOOLS
             + APP_TOOLS
             + FILE_TOOLS
+            + VISION_TOOLS
+            + BROWSER_TOOLS
             + SYSTEM_TOOLS
         )
     return _REGISTRY

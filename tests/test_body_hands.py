@@ -16,6 +16,7 @@ where it expected a refusal is reporting a real hole, not a mock artefact.
 from __future__ import annotations
 
 import inspect
+import os
 from types import SimpleNamespace
 from typing import Any
 
@@ -32,6 +33,7 @@ from core.audit import AuditLog
 from body.hands import (
     AppManager,
     Clipboard,
+    app_registry,
     Hands,
     Keyboard,
     Mouse,
@@ -627,11 +629,46 @@ class TestAttacksOnApplications:
         assert resolved["whitelisted"] is False
 
     def test_alias_resolves_before_classification(self, desktop) -> None:
-        """A decision for the executable covers the alias that produced it."""
+        """A decision for the executable covers the alias that produced it.
+
+        The decision is forged for whatever ``chrome`` resolves to, read through
+        the same resolver the manager uses. That is the property being tested: the
+        alias is resolved *before* classification, so the gate is asked about the
+        concrete file and a decision naming that file is honoured. Hard-coding
+        ``chrome.exe`` here would have tested the older world in which Chrome was
+        named by a bare string that happens not to be on PATH.
+        """
+        from body.hands.action_classifier import resolve_target
+
+        launcher = StubLauncher()
+        apps = AppManager(kill_switch=desktop.kill_switch, launcher=launcher)
+        resolved = resolve_target("app", "chrome")
+        apps.open_app(allow("open_apps", resolved["executable"]), "chrome")
+        assert launcher.launched == [resolved["executable"]]
+
+    def test_a_decision_written_against_the_bare_alias_still_covers_the_real_file(self, desktop) -> None:
+        """Alias equivalence survives path resolution — and stops there.
+
+        :func:`body.hands.hands_guards.same_target` resolves the *granted* target
+        through the same resolver, so an approval written when the application was
+        a bare name still covers the concrete file it became. That is deliberate:
+        the alternative is an approval that stops working the moment the resolver
+        finds a real path.
+
+        The important half is the boundary. Two spellings of one application are
+        one application; two applications are two. So the equivalence must not
+        widen into a decision for ``chrome`` also paying for ``msedge``.
+        """
         launcher = StubLauncher()
         apps = AppManager(kill_switch=desktop.kill_switch, launcher=launcher)
         apps.open_app(allow("open_apps", "chrome.exe"), "chrome")
-        assert launcher.launched == ["chrome.exe"]
+        assert launcher.launched == [app_registry.resolve_app("chrome")["executable"]]
+
+        launcher = StubLauncher()
+        apps = AppManager(kill_switch=desktop.kill_switch, launcher=launcher)
+        with pytest.raises(DecisionReplayRefused):
+            apps.open_app(allow("open_apps", "chrome.exe"), "edge")
+        assert launcher.launched == []
 
     def test_close_requires_its_own_category(self, desktop) -> None:
         """An open decision cannot be spent on closing."""
@@ -807,3 +844,80 @@ class TestNoHardwareReached:
             with pytest.raises(HandsRefused):
                 call()
         assert desktop.actuator.calls == []
+
+
+class TestApplicationLocation:
+    """A whitelisted name resolves to something this machine can actually launch."""
+
+    def test_path_is_tried_before_the_known_locations(self) -> None:
+        """A name that resolves on PATH is left alone.
+
+        Ordering matters rather than merely being tidy: resolve and execute both
+        call :func:`locate`, and the gate compares their two results for exact
+        equality. Resolving to a different string in the two calls would mean
+        every approved launch being refused at the last line as a replay.
+        """
+        from body.hands.app_registry import KNOWN_APP_PATHS, locate
+
+        # ``cmd.exe`` is in System32, so it is on PATH — and it is deliberately
+        # absent from KNOWN_APP_PATHS, so this also proves the two mechanisms are
+        # genuinely separate rather than the table happening to hold everything.
+        assert "cmd.exe" not in KNOWN_APP_PATHS
+        assert locate("cmd.exe") == "cmd.exe"
+
+    def test_chrome_resolves_to_an_installed_path(self) -> None:
+        """Chrome is found at its real install location, not left as ``chrome.exe``.
+
+        Found in Session 13 live verification: "Open Chrome" resolved to the bare
+        string ``chrome.exe`` and the launch failed, because the Chrome installer
+        does not put its application directory on ``PATH``. A whitelist entry that
+        names an application ZUZZ cannot find is an alias for a broken command.
+        """
+        from body.hands.app_registry import resolve_app
+
+        chrome = os.environ.get("ProgramFiles", r"C:\Program Files")
+        expected = os.path.join(chrome, "Google", "Chrome", "Application", "chrome.exe")
+
+        resolved = resolve_app("chrome")
+        assert resolved["whitelisted"] is True
+        assert resolved["executable"] == expected
+        assert os.path.isfile(resolved["executable"]), resolved["executable"]
+        # And the gate judges the concrete file, not the alias the model wrote.
+        assert resolved["executable"] != "chrome.exe"
+
+    def test_resolve_and_execute_agree_byte_for_byte(self) -> None:
+        """The executable the gate judged is the one that will be launched.
+
+        The invariant the whole design rests on: resolve runs before the gate so
+        that what is decided is what is acted on. It only holds if resolution is
+        deterministic, which is why :func:`locate` returns the name unchanged
+        rather than guessing.
+        """
+        from body.hands.action_classifier import resolve_target
+
+        for name in ("chrome", "notepad", "edge", "vscode", "cmd"):
+            first = resolve_target("app", name)
+            second = resolve_target("app", name)
+            assert first["executable"] == second["executable"], name
+            assert first["category"] == second["category"], name
+
+    def test_an_absent_application_is_left_alone_rather_than_refused(self) -> None:
+        """Nothing is invented and nothing is pre-emptively blocked.
+
+        :func:`locate` returns the name unchanged when it finds no path, because
+        "not on PATH" is not "not installed". Refusing at resolve would make ZUZZ
+        assert an application does not exist when all it knows is that it could
+        not find it — and the honest failure, a launch error naming the
+        executable, is more useful than a confident refusal.
+        """
+        from body.hands.app_registry import locate
+
+        assert locate("definitely-not-installed-12345.exe") == "definitely-not-installed-12345.exe"
+
+    def test_an_absolute_path_is_never_rewritten(self) -> None:
+        """An explicit path is the user's statement, and is passed through as-is."""
+        from body.hands.app_registry import locate
+
+        given = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+        assert locate(given) == given
+        assert locate("") == ""

@@ -971,23 +971,50 @@ classified `safe` and stored; real Chromium launched and navigated; page text ex
 from the live page; browser frame stored through the Occipital store; metadata address
 refused. `Delete C:\Windows` blocked by **immutable rule R1** at trust 4.
 
-**Gap — the wiring that matters most.** Neither subsystem is in the model's tool
-catalogue, which still lists the original 15 tools. A chat reply therefore cannot reach
-either one: "What do you see on my screen?" is answered by the 3B model from nothing,
-inventing a description instead of saying it cannot see. Both subsystems work perfectly
-through their own API — this is missing wiring, not missing capability. Exposing them to
-the Cerebrum is the next session's work.
+**Session 13 (2026-10-05) — the gap above is closed, and it was worse than "missing
+wiring."** The 20 tools were in the registry, so the catalogue *said* 35 while the code
+reached 15. Three defects sat between the model and the hardware:
 
-**Also outstanding:** `moondream` is not pulled, so `/api/vision/describe` will not
-answer yet (`ollama pull moondream`; the VRAM check already reports it fits in 3108 MB).
-`routes_hands`' app alias resolver maps `chrome` to a bare `chrome.exe`, which is not on
-PATH on this machine — Chrome lives at `C:\Program Files\Google\Chrome\Application`, so
-`open_app` reports `[WinError 2]` for it.
+* `ToolContext` never carried the Occipital Lobe or Body/Legs, so vision and browser tools
+  had no backend even when called;
+* `ChatActionRunner` called coroutine tools **without awaiting them**, so 15 tools returned a
+  pending coroutine that was never run;
+* vision target resolution compared `describe:monitor=0` against the canonical form and
+  passed `None` to the verifier, so it refused its own input.
+
+That combination is the mechanism behind "ZUZZ hallucinated a description of my screen":
+the tools were never consulted, so the only available source was the 3B model's imagination.
+`ToolSpec.resolve` now runs before the gate and is given the lobes, the action runner is
+async and awaited, and `vision_describe_screen` accepts a `region` because Moondream
+degenerates on a full 1920x1080 frame and answers correctly on a crop.
+
+**Live verification (Session 13, trust level 4, 1142 passed / 2 skipped / 0 failed):**
+
+1. "Open Chrome and go to google.com" → `browser_open` returned a **visible, non-headless**
+   window, `browser_navigate` returned title `Google`, final URL `https://www.google.com/`,
+   status 200, and `browser_extract_text` returned real page text.
+2. "What do you see on my screen?" → a real 1920x1080 frame, classified and described. Two
+   *different* regions of that frame returned two *different* answers, which is the actual
+   anti-hallucination evidence: a model inventing a screen would return the same string for
+   both.
+3. "Search Google for Python tutorials" → `browser_search_web` returned 10 real results
+   (w3schools, docs.python.org, realpython, …) with working URLs.
+
+**Findings worth keeping.** `moondream` is installed (1.7 GB, Hypothalamus `fits: true`,
+34.7% of free VRAM) and a cold load takes 16.7s, so the transport timeout moved 45s → 90s.
+Google answers every query from this machine with `/sorry/index`, so DuckDuckGo is the
+default and the fallback is load-bearing, not decoration. "Open Chrome" resolved to a bare
+`chrome.exe` that cannot be launched; `app_registry.locate()` now tries `PATH` then
+`KNOWN_APP_PATHS`, and that surfaced a false alarm — the resolved path made the amygdala's
+`system_path` pattern score 6/10 "dangerous", so the fix would have made "open Chrome" ask
+for confirmation at every trust level. `system_path` now exempts `open_apps`/`close_apps`
+and a test pins the exemption so it cannot leak into delete or write actions. `C:\` is now
+a volume root: `Delete C:\` is blocked by **immutable rule R1** at every trust level.
 
 ### Agent Action Loop Status
 
-LIVE, verified on this machine 2026-10-04. ZUZZ executes **15 tools** from a chat
-reply, every one of them through the same gate the Desktop and Files tabs use.
+LIVE, verified on this machine 2026-10-05. ZUZZ executes **35 tools** from a chat
+reply (was 15), every one of them through the same gate the Desktop and Files tabs use.
 
 The pipeline, per action, in this order — and the order is the safety property:
 
@@ -1043,27 +1070,25 @@ names the account literally and carries the resolved path `C:\Users\jayan`.
 
 ### Overall Progress
 
-**~60% complete.** 1122 tests passing, 2 skipped (symlink), 0 failures. 244 Python
-files, 56,716 lines (41,063 source, 15,653 test).
+**~65% complete.** 1142 tests passing, 2 skipped (symlink), 0 failures.
 
-Phases 1 and 2 are code-complete; Phase 3 steps 1 and 2 are code-complete and the
-agent action loop is live. What remains is Phase 3 step 3 (Parietal Lobe), the tool
-wiring that puts the Occipital Lobe and Body/Legs in front of the model, and
-end-to-end verification once Ollama and the three local models are installed.
+Phases 1 and 2 are code-complete; Phase 3 steps 1 and 2 are code-complete, wired into the
+model's tool catalogue, and **verified live against real hardware**. The agent action loop
+exposes 35 tools. What remains is Phase 3 step 3 (Parietal Lobe), Phase 1 end-to-end
+verification, and memory.
 
 ### Next Step
 
-* [ ] **Wire the Occipital Lobe and Body/Legs into the tool catalogue** — the highest
-      value change available. Both work; the model cannot reach either.
-* [ ] `ollama pull moondream` — the vision model is not present, so `/api/vision/describe`
-      cannot answer until it is
 * [ ] Phase 3 Step 3: Parietal Lobe (see docs/PHASE_3_PLAN.md)
-* [ ] App resolver: map `chrome` to its full install path, not a bare `chrome.exe`
-* [ ] Drive-root protection: add volume roots to `core/paths.PROTECTED_PREFIXES`
-* [ ] Phase 1 END-TO-END VERIFICATION (needs Ollama + the 3 models)
+* [ ] Phase 1 END-TO-END VERIFICATION (needs the 3 models present; Moondream is now in)
+* [x] **Wire the Occipital Lobe and Body/Legs into the tool catalogue** — done, 35 tools
+      reachable from chat, verified live
+* [x] `ollama pull moondream` — installed 2026-10-05, 1.7 GB, Hypethalamus reports `fits: true`
+* [x] App resolver: map `chrome` to its full install path, not a bare `chrome.exe`
+* [x] Drive-root protection: volume roots are `protected` and R1 blocks their deletion
 * [x] Set up Python virtual environment
 * [x] Create .env with API keys (Groq, HuggingFace, OpenRouter, NVIDIA, Colab, Telegram, ntfy)
-* [ ] Download local models (Qwen 1.5B, 3B, Moondream)
+* [ ] Download remaining local models (Qwen 1.5B, 3B)
 * [x] Connect to Colab cloud brain (colab_connector.py) — verified live
 * [x] Connect to Groq cloud brain (groq_connector.py) — verified live
 * [x] PHASE 2 APPROVED (2026-10-02) — all 5 open questions answered, dry run added
@@ -1076,7 +1101,7 @@ end-to-end verification once Ollama and the three local models are installed.
 * [x] Phase 2 Step 7: integration test
 * [x] **Phase 3 Step 1: Occipital Lobe** — screen vision behind the gate
 * [x] **Phase 3 Step 2: Body/Legs** — browser behind the gate
-* [x] **Agent Action Loop** — 15 tools wired through the safety gate
+* [x] **Agent Action Loop** — 35 tools wired through the safety gate
 
 ### Not Started
 

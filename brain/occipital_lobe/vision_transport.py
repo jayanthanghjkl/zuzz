@@ -30,9 +30,19 @@ from brain.occipital_lobe.exceptions import VisionModelUnavailable, VisionTimeou
 #: ``core.config``, so a machine configured in one place is configured in both.
 DEFAULT_HOST = "http://localhost:11434"
 
-#: Vision is a small model on a local runtime; a minute is generous and a shorter
-#: wait is friendlier than a hung request.
-DEFAULT_TIMEOUT = 45.0
+#: Vision is a small model on a local runtime, so a healthy answer is fast -- but
+#: the *first* answer has to load 1.7 GB of weights into VRAM first, and that load
+#: is the dominant cost. Measured on the Session 13 hardware: a cold text-only call
+#: took 16.7s, and a cold image call inside the full chat pipeline -- screenshot,
+#: browser session and model load all at once -- exceeded 45s. The old 45s ceiling
+#: therefore refused legitimate work on a cold start.
+#:
+#: Ninety seconds is a cold-start budget rather than a hung-request budget: the
+#: failure it guards against is still reported as a clear
+#: :class:`~brain.occipital_lobe.exceptions.VisionTimeout` naming the timeout, never
+#: as an invented description, so the longer wait costs latency only in the case
+#: where Ollama is genuinely not answering.
+DEFAULT_TIMEOUT = 90.0
 
 #: Ollama's documented ceiling for base64 images. A 4K screen photo is well
 #: under it; the check exists because the alternative is an opaque 400.

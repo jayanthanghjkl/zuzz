@@ -69,6 +69,32 @@ CONFIG = Path(__file__).resolve().parent.parent / "config"
 FRONTEND = Path(__file__).resolve().parent.parent / "face" / "frontend"
 
 
+def registered_paths(router: Any) -> set:
+    """Return every path a router serves, however the routes are nested.
+
+    ``routes_browser`` is assembled from three sub-routers with
+    ``include_router``, and as of FastAPI 0.142 an included router is appended to
+    ``.routes`` as an ``_IncludedRouter`` wrapper rather than flattened into its
+    children — so ``{route.path for route in router.routes}`` raises
+    ``AttributeError`` before it can check anything. Walking ``original_router``
+    keeps the check working whatever the nesting depth, which is the point: this
+    test exists to notice a control pointing at a 404, and it must not be the
+    thing that breaks on a dependency bump.
+    """
+    paths: set = set()
+    stack: List[Any] = list(getattr(router, "routes", []))
+    while stack:
+        entry = stack.pop()
+        path = getattr(entry, "path", None)
+        if path is not None:
+            paths.add(str(path))
+            continue
+        nested = getattr(getattr(entry, "original_router", None), "routes", None)
+        if nested:
+            stack.extend(nested)
+    return paths
+
+
 # -- allowlist fixtures ------------------------------------------------
 
 
@@ -2288,7 +2314,8 @@ class TestThePage:
         to be posting into a route that was never registered.
         """
         script = (FRONTEND / "static" / "js" / "browser.js").read_text(encoding="utf-8")
-        paths = {route.path for route in router.routes}
+        paths = registered_paths(router)
+        assert paths, "the browser router should serve something"
         for endpoint in set(re.findall(r"/api/browser/[a-z-]+", script)):
             assert endpoint in paths, endpoint
 

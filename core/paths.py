@@ -7,8 +7,8 @@ here, once, and both sides import it.
 
 Three classifications:
 
-* ``protected`` — operating system or credential files. Blocked at every trust
-  level, and writes to them are blocked too.
+* ``protected`` — operating system or credential files, and the root of any
+  volume. Blocked at every trust level, and writes to them are blocked too.
 * ``temp`` — the project's ``temp/`` directory and the system temp directory.
   Safe to clean up, so deletion may auto-approve from trust level 3.
 * ``caution`` — Desktop, Documents, Downloads. Real user data: writes and
@@ -20,6 +20,7 @@ Anything else is ``safe``: the project directory itself.
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Set
@@ -53,6 +54,39 @@ PROTECTED_NAMES = frozenset(
 CAUTION_NAMES = frozenset(
     name.lower() for name in ("Desktop", "Documents", "Downloads", "Pictures", "Music", "Videos")
 )
+
+#: A volume root: a bare drive, with or without its trailing separator.
+#:
+#: ``C:\`` is its own case rather than a prefix, which is what makes it dangerous.
+#: Every other protected entry above works because a protected path sits *under* a
+#: protected folder, so ``C:\Windows`` is caught by matching ``C:\Windows``. A
+#: volume root has no parent left to match, so a prefix classifier waves it
+#: through — and "delete C:\" came back as ``safe``, meaning the recycle-bin
+#: exception for a temporary path was one keystroke away from erasing a drive.
+#:
+#: The bare ``c:`` form is included deliberately. It is *drive-relative*: on
+#: Windows ``cd c:`` and ``Remove-Item c:`` both mean the root of the C volume,
+#: and ``c:`` normalises to ``c:`` without a separator. Matching only the
+#: trailing-backslash spelling would leave the same drive reachable by dropping
+#: one character.
+#:
+#: Matched against the normalised form, which is lower-cased, so the pattern is
+#: lower-case.
+VOLUME_ROOT_PATTERN = re.compile(r"^[a-z]:\\?$")
+
+
+def is_volume_root(path: str) -> bool:
+    """Return True when a path names the root of a volume.
+
+    Args:
+        path: Any filesystem path.
+
+    Returns:
+        True for ``C:\\``, ``c:/`` and the drive-relative ``c:``, false for
+        everything else — including a real subdirectory such as ``C:\\Users``,
+        which is ordinary user data and is classified on its own merits.
+    """
+    return bool(VOLUME_ROOT_PATTERN.match(_normalise(path)))
 
 
 def _normalise(path: str) -> str:
@@ -109,6 +143,8 @@ def is_protected(path: str) -> bool:
         True when the path must not be written to or deleted.
     """
     normalised = _normalise(path)
+    if is_volume_root(normalised):
+        return True
     if any(normalised.startswith(prefix) for prefix in _protected_set()):
         return True
     return Path(normalised).name in PROTECTED_NAMES

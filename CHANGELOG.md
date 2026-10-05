@@ -27,6 +27,91 @@ This file is automatically updated by the AI assistant. It tracks every change m
 
 ---
 
+## [2026-10-05] Session 13: Phase 3 verified against real hardware
+
+The 20-tool expansion from the previous merge was claimed complete. It was not, and this
+session found out why by running it. Six of the seven tasks below were defects found by
+testing rather than review, and the headline is that **all 35 tools were registered but
+not all 35 were callable from chat**: the tool context never carried the lobes, and the
+action runner called coroutine tools without awaiting them, so vision and browser tools
+returned immediately instead of doing their work.
+
+Verified against the real machine, not mocks: 1142 passed, 2 skipped, 0 failed, and three
+live scenarios passed end to end.
+
+### Fixed
+
+**35 tools reachable from chat.** `ToolContext` did not include the Occipital Lobe or
+Body/Legs, so every vision and browser tool could not reach its backend even though the
+registry listed it. `ChatActionRunner.tool_context()` now wires both in.
+
+**Coroutine tools were called, not awaited.** `run_reply`, `run_call`, `confirm` and
+`_execute` are now `async` and await the result, and `routes_chat.py` awaits them. Fifteen
+tools are coroutines; before this, each one handed back a pending coroutine that was never
+run. This was the mechanism behind the "hallucination" report: the tools were never
+consulted, so any answer had to come from the model.
+
+**Vision targets no longer fail their own verification.** `resolve()` passed `None` to the
+verifier, and `describe:monitor=0` was compared against the canonical `monitor:0 describe`.
+Resolution now proposes through `OccipitalLobe.propose()` and refuses on the canonical form.
+
+**`ScreenCapture` accepted `capture` for every operation.** `describe`, `find` and `ocr`
+were re-verified as a capture and refused. The operation is now explicit.
+
+**`Capture.summary()` contained a `timestamp` key that does not exist**, so every vision
+capture raised `AttributeError` and the failure was reported as a backend error.
+
+**The Chrome path was unlaunchable.** `config/apps_whitelist.json` stores bare names, and
+nothing resolved them, so "open Chrome" resolved to `chrome.exe` — which cannot be launched,
+because the Chrome, Firefox and Edge installers deliberately do not put themselves on
+`PATH`. `locate()` now tries `PATH` first and then `KNOWN_APP_PATHS`. Resolved:
+`C:\Program Files\Google\Chrome\Application\chrome.exe`.
+
+**That fix exposed a false alarm.** With a real path, the amygdala's `system_path` pattern
+matched, scoring 6/10 "dangerous", so "open Chrome" began asking for confirmation at every
+trust level. A program's install directory is its home, not a target being damaged. The
+pattern now declares `except: ["open_apps", "close_apps"]`, and a test asserts the exemption
+does not leak into delete, write or run actions.
+
+**`C:\` was classified as a user directory.** `Delete C:\` reached an approval prompt at
+trust 1. `is_volume_root()` now recognises drive roots, and rule R1 blocks the delete at
+every level. Verified: `C:\` is blocked, `C:\Users` is not.
+
+**A route-coverage test could not see included routers.** FastAPI 0.142.2 stores them as
+`_IncludedRouter` wrappers with no `.path`, so the test read 0 paths and the walker now
+follows `original_router.routes`.
+
+**Google search is bot-challenged from this machine.** `/sorry/index` is returned for every
+query. DuckDuckGo is already the default for exactly this reason and the fallback works;
+the parser was also dropping real result titles in favour of internal links, which is fixed.
+
+### Added
+- Moondream installed and admitted by the Hypothalamus: 1.7 GB, `fits: true`, 34.7% of free
+  VRAM. Cold load takes 16.7s, so `DEFAULT_TIMEOUT` moved from 45s to 90s.
+- `region` on `vision_describe_screen` and `session_id` on `browser_search_web`.
+- `KNOWN_APP_PATHS` in `body/hands/app_registry.py`, and common install locations
+  documented in the app whitelist.
+- Volume-root protection in `core/paths.py`.
+- Regression tests for tool reachability from chat, coroutine awaiting, the pattern
+  exemption, and volume-root deletion.
+
+### Notes
+- **Moondream is reliable in crops and unreliable full-screen.** Given 1920x1080 it
+  degenerates into a repeated token; given a 640x400 crop it answers specifically and
+  correctly. `vision_describe_screen` should be given a `region`, and reading text belongs
+  to `vision_read_text`.
+- **Three live scenarios pass.** Chrome visibly opened and google.com loaded (title
+  `Google`, status 200, real page text extracted); a real 1920x1080 screenshot was described,
+  and two different regions of it returned two different answers, which is what proves the
+  answer came from the pixels rather than from the model; a real search returned 10 real
+  Python tutorial results.
+- One scenario run hit a transient Ollama HTTP 500 on the second image request. It did not
+  reproduce across five controlled requests, with and without a browser open, and ZUZZ
+  reported the failure as an error instead of inventing a description — which is the
+  behaviour we want and the reason the pass criteria refuse to accept a refusal.
+
+---
+
 ## [2026-10-05] Merge � Sessions 1-3: Phase 3 Step 1 and Step 2
 
 Three parallel sessions merged. ZUZZ can now see the screen and drive a real browser,

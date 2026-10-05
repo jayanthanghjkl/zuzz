@@ -82,13 +82,37 @@ DEFAULT_ENGINE = "duckduckgo"
 
 #: Fixed snippets, one per parser plus the fallback. None contains caller data.
 PARSE_JS = {
+    # DuckDuckGo puts its own "site:" refinement links *before* the result link
+    # inside each result card, so a plain ``querySelector('a[href]')`` returns a
+    # duckduckgo.com redirect with empty text — the result had no title and no
+    # destination, and the whole search silently fell through to the fallback.
+    # Taking the first link that leaves the engine's own host is what the intent
+    # always was, and it is also robust to the order changing again.
+    #
+    # Each card then carries *two* offsite links with the same destination: a
+    # breadcrumb whose text is the URL echoed back, and the real title. A
+    # breadcrumb always starts with its own scheme, so preferring a link whose
+    # text does not start with ``http`` picks the title without depending on
+    # which of the two happens to come first.
     "ddg": """
 () => Array.from(document.querySelectorAll('[data-testid="result"]'))
   .map((r) => {
-    const a = r.querySelector('a[href]');
+    const host = 'duckduckgo.com';
+    const offsite = Array.from(r.querySelectorAll('a[href]')).filter((a) => {
+      try {
+        return new URL(a.href).hostname.replace(/^www\\./, '') !== host;
+      } catch (e) {
+        return false;
+      }
+    });
+    const named = offsite
+      .map((a) => ({href: a.href, text: (a.innerText || '').trim()}))
+      .filter((x) => x.text.length > 0);
+    const titled = named.filter((x) => !/^https?:\\/\\//i.test(x.text));
+    const best = titled[0] || named[named.length - 1];
     const snip = r.querySelector('[data-result="snippet"]');
-    return a ? {href: a.href, title: (a.innerText || '').trim(),
-                snippet: snip ? (snip.innerText || '').trim() : ''} : null;
+    return best ? {href: best.href, title: best.text,
+                   snippet: snip ? (snip.innerText || '').trim() : ''} : null;
   }).filter(Boolean)
 """,
     "google": """

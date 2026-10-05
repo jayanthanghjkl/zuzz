@@ -123,6 +123,7 @@ class ScreenCapture:
         monitor: int = 0,
         region: Optional[Sequence[int]] = None,
         label: str = "",
+        operation: str = "capture",
     ) -> Capture:
         """Take one screenshot, under permission.
 
@@ -133,6 +134,7 @@ class ScreenCapture:
             region: ``(x, y, width, height)`` in monitor-local pixels, or None for
                 the whole monitor.
             label: Short name for the log and the stored filename.
+            operation: The operation the decision was issued for.
 
         Returns:
             The capture, with its image and its desktop origin.
@@ -147,7 +149,15 @@ class ScreenCapture:
             CropOutOfBounds: The region leaves the monitor, has no area, or is
                 larger than the single-read ceiling.
         """
-        target = vision_guards.target_for("capture", monitor, region)
+        # ``operation`` rather than a hard-coded ``"capture"``, because the three
+        # model-backed operations all need a screenshot and all hold a decision
+        # issued for *their own* name. Verifying those against ``capture`` instead
+        # refused every ``describe``, ``find`` and ``ocr`` at the last line —
+        # "decision was for 'describe:monitor=0', not 'capture:monitor=0'" — which
+        # left the Occipital Lobe's entire reason for existing unreachable. The
+        # check is not weakened: the decision still has to name this exact
+        # operation, monitor and region.
+        target = vision_guards.target_for(operation, monitor, region)
         vision_guards.verify_decision(decision, target, self.kill_switch)
         layout = self.backend.layout()
         chosen = vision_guards.resolve_monitor(monitor, layout)

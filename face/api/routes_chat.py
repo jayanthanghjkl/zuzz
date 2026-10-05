@@ -152,7 +152,7 @@ async def chat(payload: ChatRequest, request: Request) -> Dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     runner = ChatActionRunner(request.app.state)
-    envelope = runner.run_reply(str(result.get("reply", "")))
+    envelope = await runner.run_reply(str(result.get("reply", "")))
     # ``response`` is the prose the user should read. The raw ``reply`` stays on
     # the payload because the routing metadata around it is what a client
     # inspects when debugging a degraded answer, and the actions are already out
@@ -189,7 +189,7 @@ async def confirm_action(
             status_code=409, detail="kill switch engaged; reset the stop to continue"
         )
     try:
-        return _wire(runner.confirm(payload.confirmation_id, payload.approval))
+        return _wire(await runner.confirm(payload.confirmation_id, payload.approval))
     except LookupError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -256,7 +256,7 @@ async def websocket_chat(websocket: WebSocket) -> None:
                 continue
 
             runner = ChatActionRunner(websocket.app.state)
-            envelope = runner.run_reply(collected)
+            envelope = await runner.run_reply(collected)
             if not envelope["has_actions"] and not envelope["warnings"]:
                 # A conversational reply: no event, so the client has nothing to
                 # render. Emitting an empty one would push a badge-less event

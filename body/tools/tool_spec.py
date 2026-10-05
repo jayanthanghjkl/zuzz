@@ -53,12 +53,25 @@ class ToolContext:
         files: The :class:`~body.fingers.file_manager.FileManager`.
         directories: The :class:`~body.fingers.directory_manager.DirectoryManager`.
         hypothalamus: The resource layer, for machine telemetry.
+        occipital_lobe: The :class:`~brain.occipital_lobe.occipital_lobe.OccipitalLobe`,
+            for the vision tools. ``None`` when the Lobe is not attached, which the
+            vision tools refuse on rather than guessing at a capture.
+        browser: The :class:`~body.legs.browser_actions.BrowserActions`, for the
+            browser tools. ``None`` when the Legs layer is not attached.
+        write_decision: An *additional* decision the caller already holds, used by
+            ``browser_download`` — a download is both a ``download_files`` and a
+            ``write_files`` act, and only one decision is ever passed as the
+            primary one. Left to the route, because minting a second decision here
+            would be the Body allowing itself.
     """
 
     hands: Any
     files: Any
     directories: Any
     hypothalamus: Any = None
+    occipital_lobe: Any = None
+    browser: Any = None
+    write_decision: Any = None
 
 
 @dataclass(frozen=True)

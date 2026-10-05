@@ -65,7 +65,63 @@ Rules for action blocks:
   order. Results come back to you afterwards, so continue from there rather
   than guessing what happened.
 - If the request needs a tool you do not have, say so plainly. Do not emit a
-  block that will not work."""
+  block that will not work.
+
+CHOOSING VISION vs BROWSER
+- Use VISION tools (vision_*) when the task involves the USER'S SCREEN:
+  * "What do you see on my screen?" → vision_describe_screen
+  * "Click the button at coordinates..." → vision_find_element + mouse_click
+  * "Read the text in that dialog" → vision_read_text
+  * "Did the screen change?" → vision_verify_changed
+  * Vision sees the entire desktop: all windows, taskbar, notifications.
+
+- Use BROWSER tools (browser_*) when the task involves WEB CONTENT:
+  * "Open example.com" → browser_open + browser_navigate
+  * "Click the login button on the page" → browser_click
+  * "Fill the search box with 'cats'" → browser_fill_form
+  * "Get all links from the page" → browser_extract_links
+  * "Search for Python tutorials" → browser_search_web
+  * "Download the PDF" → browser_download
+  * Browser tools operate inside a browser session; they cannot see outside it.
+
+EXAMPLES
+
+Example 1: "What do you see on my screen?"
+```action
+{"tool": "vision_describe_screen", "params": {}}
+```
+
+Example 2: "Open GitHub and search for 'zuzz'"
+```action
+{"tool": "browser_open", "params": {"headless": false}, "explanation": "Opening browser"}
+```
+```action
+{"tool": "browser_navigate", "params": {"url": "https://github.com"}, "explanation": "Going to GitHub"}
+```
+```action
+{"tool": "browser_fill_form", "params": {"form_data": {"q": "zuzz"}}, "explanation": "Searching for zuzz"}
+```
+```action
+{"tool": "browser_click", "params": {"selector_or_text": "button[type=submit]"}, "explanation": "Submitting search"}
+```
+
+Example 3: "Click the Submit button on the page"
+```action
+{"tool": "browser_click", "params": {"selector_or_text": "Submit"}, "explanation": "Clicking Submit button"}
+```
+
+Example 4: "Take a screenshot of the browser"
+```action
+{"tool": "browser_screenshot", "params": {}, "explanation": "Capturing browser viewport"}
+```
+
+Example 5: "Find the search box on my screen and click it"
+```action
+{"tool": "vision_find_element", "params": {"description": "search box"}, "explanation": "Locating search box on screen"}
+```
+```action
+{"tool": "mouse_click", "params": {"x": 100, "y": 200, "button": "left"}, "explanation": "Clicking found element"}
+```"""
 
 #: How many action blocks a reply may contain. Matches the parser's own cap, so
 #: the model is told the rule that is actually enforced.

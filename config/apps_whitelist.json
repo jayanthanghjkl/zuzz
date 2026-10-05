@@ -10,7 +10,21 @@
     "does not grant access. An application that is not here is still launchable, it",
     "just asks every time.",
     "",
-    "Removing an entry does not block that app, it only removes the auto-approval."
+    "Removing an entry does not block that app, it only removes the auto-approval.",
+    "",
+    "WHERE AN EXECUTABLE LIVES: the values below are names, not paths, and that is",
+    "deliberate. body.hands.app_registry.locate() resolves each one in this order:",
+    "1. the user's PATH, so System32 entries like notepad.exe stay bare names;",
+    "2. KNOWN_APP_PATHS in body/hands/app_registry.py, which lists where Chrome,",
+    "   Firefox, Edge, VS Code, Brave, Opera, Slack, Discord, Spotify and Office",
+    "   actually install - the Chrome, Firefox and Edge installers deliberately do",
+    "   not add themselves to PATH, so without this table 'Open Chrome' resolved to",
+    "   a name that cannot be launched;",
+    "3. the name unchanged, so the launch fails with an accurate error rather than",
+    "   ZUZZ asserting an application it simply could not find does not exist.",
+    "",
+    "Add an application here if you want it to auto-approve. If its installer does",
+    "not use PATH, also add its location to KNOWN_APP_PATHS."
   ],
   "policy": {
     "unknown_app_category": "run_safe_commands",

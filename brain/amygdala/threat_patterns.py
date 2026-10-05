@@ -63,14 +63,14 @@ _CACHE_LIMIT = 512
 
 
 @lru_cache(maxsize=1)
-def compiled_patterns() -> Tuple[Tuple[str, Pattern[str], Tuple[str, ...]], ...]:
+def compiled_patterns() -> Tuple[Tuple[str, Pattern[str], Tuple[str, ...], Tuple[str, ...]], ...]:
     """Compile the configured patterns once.
 
     A malformed pattern is skipped rather than allowed to raise: a broken regex
     must not take the safety layer down, and the remaining patterns still apply.
 
     Returns:
-        A tuple of (id, compiled regex, applicable categories).
+        A tuple of (id, compiled regex, applicable categories, exempt categories).
     """
     out = []
     for entry in get_danger_patterns().get("patterns", []):
@@ -78,20 +78,40 @@ def compiled_patterns() -> Tuple[Tuple[str, Pattern[str], Tuple[str, ...]], ...]
             compiled = re.compile(entry["regex"], re.IGNORECASE)
         except re.error:
             continue
-        out.append((entry["id"], compiled, tuple(entry.get("applies_to", [ALL]))))
+        out.append(
+            (
+                entry["id"],
+                compiled,
+                tuple(entry.get("applies_to", [ALL])),
+                tuple(entry.get("except", ())),
+            )
+        )
     return tuple(out)
 
 
-def applies_to(pattern_categories: Tuple[str, ...], category: str) -> bool:
+def applies_to(
+    pattern_categories: Tuple[str, ...],
+    category: str,
+    exempt_categories: Tuple[str, ...] = (),
+) -> bool:
     """Return True when a pattern is relevant to this action category.
 
     Args:
         pattern_categories: Categories the pattern declares.
         category: The action category under assessment.
+        exempt_categories: Categories the pattern explicitly excludes. This exists
+            because ``applies_to: ["all"]`` is the fail-safe default and must stay
+            it — a pattern with no declared scope has to apply everywhere, so that
+            a category added tomorrow is covered by default rather than silently
+            forgotten. The cost of that safety is that a pattern which is wrong for
+            one specific category has to name that category as an exemption rather
+            than enumerating the other twenty.
 
     Returns:
         True when the pattern should be considered.
     """
+    if category in exempt_categories:
+        return False
     return ALL in pattern_categories or category in pattern_categories
 
 

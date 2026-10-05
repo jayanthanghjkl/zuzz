@@ -652,7 +652,40 @@ def test_confirmation_re_decides_fresh(client, wired, tmp_path) -> None:
 # ---------------------------------------------------------------------
 
 
-def test_all_15_tools_registered_and_callable() -> None:
+#: The twenty tools added when the Occipital Lobe and the Legs were wired into
+#: the catalogue. Asserted by name, because the count alone cannot catch a
+#: misspelling: 35 tools with ``browser_navigat`` in place of ``browser_navigate``
+#: is 35 tools and a promise the model cannot keep.
+VISION_TOOL_NAMES = (
+    "vision_capture_screen",
+    "vision_describe_screen",
+    "vision_find_element",
+    "vision_read_text",
+    "vision_verify_changed",
+)
+
+BROWSER_TOOL_NAMES = (
+    "browser_open",
+    "browser_navigate",
+    "browser_click",
+    "browser_fill_form",
+    "browser_extract_text",
+    "browser_extract_links",
+    "browser_search_web",
+    "browser_download",
+    "browser_screenshot",
+    "browser_list_tabs",
+    "browser_switch_tab",
+    "browser_close_tab",
+    "browser_close",
+    "browser_scroll",
+    "browser_get_session_status",
+)
+
+NEW_TOOL_NAMES = VISION_TOOL_NAMES + BROWSER_TOOL_NAMES
+
+
+def test_all_35_tools_registered_and_callable() -> None:
     """Every tool the model is told about exists, and every one resolves and runs.
 
     Checked as a unit test with recording doubles rather than through the API,
@@ -660,12 +693,26 @@ def test_all_15_tools_registered_and_callable() -> None:
     ``tools_schema`` with no implementation is a tool the model was promised and
     cannot reach, and an implementation with no schema is a capability no model
     can ask for. Either one is a bug that no single route test would surface.
+
+    Thirty-five rather than fifteen since Session 13: five vision tools and
+    fifteen browser tools, which together are what makes ZUZZ multi-modal
+    rather than a chat that can move a mouse.
     """
     from brain.cerebrum.tool_catalogue import TOOL_NAMES
     from body.tools import ToolContext, catalogue_mismatches
 
-    assert len(TOOL_NAMES) == 15, TOOL_NAMES
+    assert len(TOOL_NAMES) == 35, TOOL_NAMES
     assert catalogue_mismatches() == []
+
+    # The twenty new tools are present *by name*. A count would pass on a typo,
+    # and a typo is exactly the failure mode this catalogue keeps hitting: a
+    # schema entry the registry cannot resolve is a hand the model was promised
+    # and never got.
+    assert len(NEW_TOOL_NAMES) == 20, NEW_TOOL_NAMES
+    for name in ("vision_capture_screen", "browser_navigate", "browser_search_web"):
+        assert name in TOOL_NAMES, f"{name} missing from the catalogue"
+    for name in NEW_TOOL_NAMES:
+        assert name in TOOL_NAMES, f"{name} missing from the catalogue"
 
     runner = ChatActionRunner(app.state)
     context = ToolContext(
@@ -673,11 +720,16 @@ def test_all_15_tools_registered_and_callable() -> None:
         files=app.state.file_manager,
         directories=app.state.directory_manager,
         hypothalamus=app.state.hypothalamus,
+        # Held so the spot-checks below resolve through the same collaborators the
+        # live pipeline uses. Without them every vision tool refuses at resolve
+        # and the check would pass for the wrong reason.
+        occipital_lobe=getattr(app.state, "occipital_lobe", None),
+        browser=getattr(app.state, "legs", None),
     )
 
     # Every tool resolves to a real category and a target, with a summary the UI
     # can show. Resolution is where "there is no such thing to act on" is caught,
-    # so running it for all fifteen is the test.
+    # so running it for all thirty-five is the test.
     for name in TOOL_NAMES:
         spec = runner.registry.get(name)
         assert spec is not None, name
@@ -702,6 +754,26 @@ def test_all_15_tools_registered_and_callable() -> None:
         "file_delete": {"path": "does-not-exist.txt"},
         "file_list": {"path": "."},
         "file_search": {"pattern": "*.md", "root": "."},
+        "vision_capture_screen": {"monitor": 0},
+        "vision_describe_screen": {"monitor": 0},
+        "vision_find_element": {"description": "the Save button"},
+        "vision_read_text": {"region": {"x": 0, "y": 0, "width": 100, "height": 40}},
+        "vision_verify_changed": {"before": "a.png", "after": "b.png"},
+        "browser_open": {},
+        "browser_navigate": {"url": "https://example.com"},
+        "browser_click": {"selector_or_text": "Accept"},
+        "browser_fill_form": {"form_data": {"q": "zuzz"}},
+        "browser_extract_text": {"selector": "body"},
+        "browser_extract_links": {},
+        "browser_search_web": {"query": "python tutorials"},
+        "browser_download": {"url": "https://example.com/file.zip"},
+        "browser_screenshot": {},
+        "browser_list_tabs": {},
+        "browser_switch_tab": {"tab_id": "0"},
+        "browser_close_tab": {"tab_id": "0"},
+        "browser_close": {},
+        "browser_scroll": {"amount": 120},
+        "browser_get_session_status": {},
         "get_system_resources": {},
     }
     assert set(samples) == set(TOOL_NAMES)
@@ -713,13 +785,113 @@ def test_all_15_tools_registered_and_callable() -> None:
         call = ToolCall(tool=name, params=validate(name, params), explanation="")
         spec = runner.registry.get(name)
         # Resolve with a scratch context; a refusal here is a legitimate answer
-        # (an unreadable path, an absent application) and is checked, not ignored.
+        # (an unreadable path, an absent application, no open browser session) and
+        # is checked, not ignored.
         try:
             target = spec.resolve(dict(params), context)
             assert target.category, name
-            assert target.target or name in ("clipboard_read", "mouse_scroll"), name
+            assert target.target, name
         except Exception as exc:  # noqa: BLE001 - the message is the assertion
             assert isinstance(exc, (ValueError, OSError)), f"{name}: {exc}"
 
     # Every tool survives being wired into the registry with its own spec.
     assert runner.registry.names() == tuple(TOOL_NAMES)
+
+
+async def test_vision_and_browser_tools_reachable_from_chat() -> None:
+    """The twenty new tools are not just listed — the chat loop can actually run them.
+
+    A registry entry the pipeline cannot reach is the exact hallucination the
+    Occipital Lobe work set out to kill: the model is shown a tool, calls it, and
+    gets a refusal it then describes as success. So this goes through
+    :meth:`ChatActionRunner.run_call` rather than the registry, and checks that a
+    vision tool reaches the Occipital Lobe rather than reporting it unattached.
+
+    Async, because the runner is. Fifteen of the thirty-five tools are coroutines,
+    and an un-awaited one returns an object that serialises as a repr — so a
+    synchronous runner would report "executed" for a tool that never ran.
+    """
+    runner = ChatActionRunner(app.state)
+    from brain.cerebrum.action_parser import ToolCall
+    from brain.cerebrum.tools_validate import validate
+
+    context = runner.tool_context()
+    assert context.occipital_lobe is not None, "the Occipital Lobe is not on the context"
+    assert context.browser is not None, "the Legs layer is not on the context"
+
+    # Resolving a vision capture proves the plumbing: with the Lobe missing this
+    # is a ToolRefused carrying "not attached".
+    outcome = await runner.run_call(
+        ToolCall(
+            tool="vision_capture_screen",
+            params=validate("vision_capture_screen", {"monitor": 0}),
+            explanation="",
+        )
+    )
+    assert "not attached" not in outcome.reason, outcome.reason
+    assert outcome.status in ("executed", "pending", "blocked"), outcome.status
+    assert outcome.reason == "" or "not attached" not in outcome.reason
+
+    # And the browser family resolves its targets the same way. A navigation with
+    # no open session is a legitimate refusal — the Legs layer, not a dead wire.
+    outcome = await runner.run_call(
+        ToolCall(
+            tool="browser_navigate",
+            params=validate("browser_navigate", {"url": "https://example.com"}),
+            explanation="",
+        )
+    )
+    assert "not attached" not in outcome.reason, outcome.reason
+
+
+async def test_a_coroutine_tool_is_awaited_not_merely_called(client, wired) -> None:
+    """An async tool's *result* is what the user is shown, not a coroutine repr.
+
+    Found in Session 13 live verification: ``vision_capture_screen`` reported an
+    internal error and ``browser_open`` never ran at all, because the runner
+    called fifteen coroutine tools and never awaited them. A coroutine that is
+    only called produces an object that serialises fine — so this would have
+    reported success while doing nothing, which is the one outcome the whole
+    action loop exists to prevent.
+
+    Checked with a stub tool rather than a real screen or browser, because the
+    defect is in the orchestrator and nothing else needs to be real to show it.
+    """
+    import inspect
+
+    from brain.cerebrum.action_parser import ToolCall
+    from brain.cerebrum.tools_validate import validate
+    from body.tools import get_registry
+    from body.tools.tool_spec import ToolSpec
+
+    calls: List[str] = []
+
+    async def execute(decision, params, context) -> Dict[str, Any]:
+        calls.append("ran")
+        return {"answered": True}
+
+    runner = ChatActionRunner(app.state)
+    spec = runner.registry.get("get_system_resources")
+    registry_spec = ToolSpec(
+        name="get_system_resources",
+        summary=spec.summary,
+        resolve=spec.resolve,
+        execute=execute,
+        returns=spec.returns,
+    )
+    assert inspect.iscoroutinefunction(registry_spec.execute)
+    # Swapped in so the real gauge is not replaced by something that has to work.
+    runner.registry = get_registry().__class__((registry_spec,))
+
+    trust_to(wired, 3)
+    outcome = await runner.run_call(
+        ToolCall(
+            tool="get_system_resources",
+            params=validate("get_system_resources", {}),
+            explanation="",
+        )
+    )
+
+    assert calls == ["ran"], "the coroutine was never awaited"
+    assert outcome.status == "executed", outcome.reason or outcome.errors
+    assert outcome.result == {"answered": True}, outcome.result

@@ -78,10 +78,10 @@ class ThreatDetector:
         skipped: List[str] = []
         score = 0
 
-        for pattern_id, pattern, categories in compiled_patterns():
+        for pattern_id, pattern, categories, exempt in compiled_patterns():
             if not pattern.search(text):
                 continue
-            if applies_to(categories, category):
+            if applies_to(categories, category, exempt):
                 score += POINTS.get(pattern_id, 0)
                 matched.append(pattern_id)
             else:

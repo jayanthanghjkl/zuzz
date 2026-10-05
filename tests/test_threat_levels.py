@@ -74,7 +74,7 @@ def test_level_for_uses_configured_bands() -> None:
 def test_every_configured_pattern_compiles_and_has_points() -> None:
     """No configured pattern may be inert or malformed."""
     configured = {entry["id"] for entry in get_danger_patterns().get("patterns", [])}
-    compiled = {pattern_id for pattern_id, _, _ in compiled_patterns()}
+    compiled = {pattern_id for pattern_id, _, _, _ in compiled_patterns()}
     assert configured == compiled, "a pattern failed to compile"
     assert configured.issubset(set(POINTS)), "a pattern has no score"
 
@@ -95,6 +95,36 @@ def test_applies_to_handles_the_all_wildcard() -> None:
     assert applies_to(("all",), "delete_files")
     assert applies_to(("run_python",), "run_python")
     assert not applies_to(("run_python",), "delete_files")
+
+
+def test_an_exempt_category_beats_the_all_wildcard() -> None:
+    """A named exemption overrides 'all', which is the only reason to have one."""
+    assert not applies_to(("all",), "open_apps", ("open_apps",))
+    assert applies_to(("all",), "delete_files", ("open_apps",))
+
+
+def test_launching_an_installed_program_is_not_a_system_path_threat() -> None:
+    """Chrome lives in C:\\Program Files, so scoring that path dangerous made
+    \"open Chrome\" ask for confirmation at every trust level once Session 13 fixed
+    the resolution. The system path is the program's home, not a target being
+    damaged, so the pattern is exempt from the launch categories and nothing else.
+    """
+    launch = Action(
+        category=ActionCategory.OPEN_APPS,
+        target=r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    )
+    assert "system_path" not in ThreatDetector().assess(launch).matched
+
+    # The exemption must not leak into actions that could actually damage it.
+    for category in (
+        ActionCategory.DELETE_FILES,
+        ActionCategory.WRITE_FILES,
+        ActionCategory.RUN_SAFE_COMMANDS,
+    ):
+        assessment = ThreatDetector().assess(
+            Action(category=category, target=r"C:\Windows\System32\drivers")
+        )
+        assert "system_path" in assessment.matched, category
 
 
 def test_patterns_are_compiled_once() -> None:
