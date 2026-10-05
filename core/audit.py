@@ -107,6 +107,36 @@ URL_BLOCKED = "url_blocked"
 DOWNLOAD_QUARANTINED = "download_quarantined"
 TAB_LIMIT_REFUSED = "tab_limit_refused"
 
+# Added by Phase 6. Four events about what ZUZZ was told to remember and what it
+# was told it may do again on its own. None of them touches the machine at the
+# moment it is written, and all four are here anyway, because the thing being
+# audited is the *authority*:
+#
+# * ``memory_forgotten`` — memory access is ``auto`` at every trust level, which
+#   makes erasing the one irreversible operation in the Hippocampus reachable with
+#   no permission at all. The gate is deliberately not on it (the argument is in
+#   ``config/trust_levels.json``'s ``memory_note``); this record is the compensating
+#   control, and a control nobody can read is not one. Written with the cutoff
+#   date and the count — never with the content of what was removed.
+# * ``routine_created`` — a stored sequence of desktop acts, so the record of what
+#   was written and which tools it names.
+# * ``routine_enabled`` — the point at which stored steps begin running on a
+#   trigger. This is the half of routine creation that matters, and it is recorded
+#   separately so arming a routine is visible even when the file was written long
+#   ago and the two events are far apart in time.
+# * ``routine_deleted`` — deletion is unrecoverable, and a routine that used to run
+#   on a trigger has just stopped.
+# * ``routine_disabled`` — the inverse of the above, and the one that was missing.
+#   Disarming reduces what the machine can do on its own, so it is not a safety
+#   event in the sense the others are; it is here because a routine that was armed
+#   by a trigger firing and silently stopped firing is indistinguishable, after the
+#   fact, from one that was never armed at all. The record is what separates them.
+MEMORY_FORGOTTEN = "memory_forgotten"
+ROUTINE_CREATED = "routine_created"
+ROUTINE_ENABLED = "routine_enabled"
+ROUTINE_DISABLED = "routine_disabled"
+ROUTINE_DELETED = "routine_deleted"
+
 EVENT_TYPES = frozenset(
     {
         BLOCKED,
@@ -130,6 +160,11 @@ EVENT_TYPES = frozenset(
         URL_BLOCKED,
         DOWNLOAD_QUARANTINED,
         TAB_LIMIT_REFUSED,
+        MEMORY_FORGOTTEN,
+        ROUTINE_CREATED,
+        ROUTINE_ENABLED,
+        ROUTINE_DISABLED,
+        ROUTINE_DELETED,
     }
 )
 

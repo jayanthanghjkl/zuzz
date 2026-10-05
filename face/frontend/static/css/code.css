@@ -1,0 +1,379 @@
+/* Code page — layout for the agents, their proposals and the terminal.
+
+   Two columns, left for asking and right for deciding. The right column is the
+   one that matters: a proposal list and the policies that produced it sit next to
+   each other on purpose, because the review a user does is "is this what I asked
+   for" and "is this what the machine is allowed to do", and those two questions
+   are easier to answer side by side than across a scroll.
+
+   The diff styling is deliberately restrained. A proposal is code the user did not
+   write, and every visual effect spent on it competes with the reading of the
+   actual lines — which is the only reason the proposal exists. Green and red carry
+   meaning here (added, removed) and nothing else does. */
+
+.code-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.15fr);
+  gap: 14px;
+  padding: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .code-layout { grid-template-columns: 1fr; }
+}
+
+.code-panel {
+  background: var(--panel, #15171c);
+  border: 1px solid var(--border, #262a33);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.code-panel .panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.code-panel .panel-title { font-weight: 600; }
+
+.code-panel .prose {
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--muted, #9aa3b2);
+  margin: 8px 0 12px;
+}
+
+.code-panel .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.code-panel .field {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted, #9aa3b2);
+  margin-bottom: 10px;
+}
+
+.code-panel textarea {
+  width: 100%;
+  min-height: 74px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+}
+
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted, #9aa3b2);
+}
+
+/* -- the agents ----------------------------------------------------- */
+
+.agent-list { display: flex; flex-direction: column; gap: 4px; }
+
+.agent-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.82rem;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.agent-row.writer { border-left: 2px solid #4a9eff; }
+
+.agent-name { font-weight: 600; }
+.agent-role, .agent-model { color: var(--muted, #9aa3b2); font-size: 0.76rem; }
+
+.routing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.policy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.kind-chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 0.74rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border, #262a33);
+  color: var(--muted, #9aa3b2);
+}
+
+.kind-chip b { color: var(--text, #e6e9ef); font-weight: 600; }
+.kind-chip.warn { border-color: #b8860b; }
+.kind-chip.bad { border-color: #b0413e; }
+.kind-chip.bad b { color: #ff8f8f; }
+
+/* -- workspace ------------------------------------------------------ */
+
+.ws-head {
+  font-size: 0.76rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+  margin: 8px 0 6px;
+}
+
+.tree {
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.76rem;
+  border: 1px solid var(--border, #262a33);
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.tree-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 1px 0;
+}
+
+.git-out {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.76rem;
+}
+
+/* -- proposals ------------------------------------------------------ */
+
+.diff-list { display: flex; flex-direction: column; gap: 12px; }
+
+.diff-card {
+  border: 1px solid var(--border, #262a33);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.diff-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border, #262a33);
+  font-size: 0.76rem;
+}
+
+.diff-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+}
+
+.diff-card-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.diff-file + .diff-file { border-top: 1px solid var(--border, #262a33); }
+
+.diff-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.diff-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-all;
+}
+
+.diff-stat { display: flex; gap: 8px; align-items: baseline; }
+.diff-stat .add { color: #4ec9a4; }
+.diff-stat .del { color: #e08b7d; }
+
+.diff-body {
+  max-height: 380px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.diff-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff-row.add { background: rgba(78, 201, 164, 0.10); }
+.diff-row.del { background: rgba(224, 139, 125, 0.10); }
+.diff-row.add .diff-sign { color: #4ec9a4; }
+.diff-row.del .diff-sign { color: #e08b7d; }
+.diff-sign { text-align: center; opacity: 0.75; }
+.diff-text { padding-right: 10px; }
+
+.diff-pre {
+  margin: 0;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* -- findings and terminal ------------------------------------------ */
+
+.findings { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; }
+
+.finding {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid var(--border, #262a33);
+}
+
+.finding.error, .finding.high { border-left-color: #d05c5c; }
+.finding.warning, .finding.medium { border-left-color: #b8860b; }
+.finding.low, .finding.info { border-left-color: #4a9eff; }
+.finding-loc { color: var(--muted, #9aa3b2); font-size: 0.72rem; }
+.finding-explain {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.term-out {
+  margin-top: 8px;
+  font-size: 0.76rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.term-stdout, .term-stderr {
+  margin: 0;
+  padding: 8px;
+  border-radius: 6px;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border, #262a33);
+}
+
+.term-stderr { border-color: #6b3230; color: #ffb3ac; }
+
+.design-box {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border, #262a33);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 260px;
+  overflow: auto;
+}
+
+/* -- the 202 -------------------------------------------------------- */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.modal.hidden { display: none; }
+
+.modal-card {
+  background: var(--panel, #15171c);
+  border: 1px solid var(--border, #262a33);
+  border-radius: 10px;
+  padding: 18px;
+  max-width: 520px;
+  width: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-card h2 { margin: 0; font-size: 1.05rem; }
+
+.modal-target {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  word-break: break-all;
+  color: var(--muted, #9aa3b2);
+}
+
+.modal-facts {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.8rem;
+  color: var(--muted, #9aa3b2);
+}
+
+.modal-write, .modal-workspace {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.modal-write {
+  background: rgba(184, 134, 11, 0.10);
+  border: 1px solid #b8860b;
+}
+
+.modal-workspace {
+  background: rgba(74, 158, 255, 0.10);
+  border: 1px solid #4a9eff;
+}
+
+.modal-write.hidden, .modal-workspace.hidden { display: none; }
+
+.muted { color: var(--muted, #9aa3b2); font-size: 0.78rem; }
+.muted.bad { color: #ff8f8f; }
+.hidden { display: none; }

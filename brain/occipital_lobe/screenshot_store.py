@@ -157,7 +157,15 @@ class Screenshots:
                     "sensitive": path.stem in flagged,
                 }
             )
-        return sorted(entries, key=lambda item: item["captured_at"], reverse=True)[:limit]
+        # Sorted by mtime, then by name. The name is not decoration: it carries the
+        # capture stamp and a monotonic counter, so it breaks ties between two saves
+        # that landed inside the same millisecond. Sorting on mtime alone left those
+        # equal, and because sort is stable the answer then came down to glob order,
+        # which Windows does not promise is creation order. That made "newest first"
+        # intermittently false under fast capture, which is exactly when it matters.
+        return sorted(
+            entries, key=lambda item: (item["captured_at"], item["name"]), reverse=True
+        )[:limit]
 
     def _log(self, action: str, **fields: Any) -> None:
         """Write one record to the activity log, if there is one.

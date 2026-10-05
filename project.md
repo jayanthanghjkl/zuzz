@@ -1013,8 +1013,14 @@ a volume root: `Delete C:\` is blocked by **immutable rule R1** at every trust l
 
 ### Agent Action Loop Status
 
-LIVE, verified on this machine 2026-10-05. ZUZZ executes **35 tools** from a chat
+LIVE, verified on this machine 2026-10-05. ZUZZ executes **64 tools** from a chat
 reply (was 15), every one of them through the same gate the Desktop and Files tabs use.
+The catalogue is 64 because three sessions have landed on it: the 15 originals, five
+vision tools, fifteen browser tools, six system-awareness tools, thirteen Phase 6 memory /
+routine / personality tools, and ten `kilo_*` coding tools. The number is the least
+interesting property of the list; the reachability assertion in
+`tests/test_action_loop.py::test_all_64_tools_registered_and_callable` is the real one,
+and Session 13 is why — it added twenty tools that were registered and unreachable.
 
 The pipeline, per action, in this order — and the order is the safety property:
 
@@ -1070,19 +1076,26 @@ names the account literally and carries the resolved path `C:\Users\jayan`.
 
 ### Overall Progress
 
-**~65% complete.** 1142 tests passing, 2 skipped (symlink), 0 failures.
+**~85% complete.** 1361 tests passing, 2 skipped (symlink), 0 failures.
 
-Phases 1 and 2 are code-complete; Phase 3 steps 1 and 2 are code-complete, wired into the
-model's tool catalogue, and **verified live against real hardware**. The agent action loop
-exposes 35 tools. What remains is Phase 3 step 3 (Parietal Lobe), Phase 1 end-to-end
-verification, and memory.
+Phases 1 and 2 are code-complete; Phase 3 is code-complete, including the Parietal Lobe.
+The agent action loop exposes 64 tools. Phase 6 is code-complete and verified: Hippocampus
+memory persists across restarts, Basal Ganglia routines are stored disarmed and arm only
+through an explicit endpoint, and the Cerebellum owns tone. What remains is Phase 1
+end-to-end verification and the two small local models still unpulled.
 
 ### Next Step
 
-* [ ] Phase 3 Step 3: Parietal Lobe (see docs/PHASE_3_PLAN.md)
 * [ ] Phase 1 END-TO-END VERIFICATION (needs the 3 models present; Moondream is now in)
 * [x] **Wire the Occipital Lobe and Body/Legs into the tool catalogue** — done, 35 tools
       reachable from chat, verified live
+* [x] **Phase 3 Step 3: Parietal Lobe** — 5 context tools, snapshot route, Windows DPI fixed
+* [x] **Phase 6: Hippocampus** — JSONL persistence verified across reload, profile rebuilt
+      from disk, 5 memory tools reachable from chat
+* [x] **Phase 6: Basal Ganglia** — routines stored `enabled=False`, armed only via
+      `POST /api/habits/arm`; context triggers and pattern detection, 5 routine tools
+* [x] **Phase 6: Cerebellum** — personality settings, mood detection, owner name kept out of
+      the system prompt, 3 personality tools
 * [x] `ollama pull moondream` — installed 2026-10-05, 1.7 GB, Hypethalamus reports `fits: true`
 * [x] App resolver: map `chrome` to its full install path, not a bare `chrome.exe`
 * [x] Drive-root protection: volume roots are `protected` and R1 blocks their deletion
@@ -1101,12 +1114,13 @@ verification, and memory.
 * [x] Phase 2 Step 7: integration test
 * [x] **Phase 3 Step 1: Occipital Lobe** — screen vision behind the gate
 * [x] **Phase 3 Step 2: Body/Legs** — browser behind the gate
-* [x] **Agent Action Loop** — 35 tools wired through the safety gate
+* [x] **Agent Action Loop** — 64 tools wired through the safety gate
 
 ### Not Started
 
-* [ ] Phase 3 Step 3+: Parietal Lobe and the remaining brain regions
 * [ ] Cloud brain connectors need re-verification (no outbound egress on this machine)
+* [ ] Code Tools API surface (`face/api/routes_code.py`) — the ten `kilo_*` tools are wired
+      and reachable, but their REST routes are still landing in a concurrent session
 
 ```
 * [x] Local Ollama path VERIFIED LIVE — both models answering, routing L1 to 1.5B and L2 to 3B

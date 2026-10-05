@@ -16,12 +16,16 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from brain.amygdala.threat_detector import ThreatDetector
+from brain.basal_ganglia.basal_ganglia import BasalGanglia
 from brain.brainstem.activity_logger import get_logger
 from brain.brainstem.heartbeat import Heartbeat
 from brain.brainstem.process_manager import ProcessManager
 from brain.brainstem.scheduler import Scheduler
+from brain.cerebellum.cerebellum import Cerebellum
+from brain.hippocampus.hippocampus import Hippocampus
 from brain.hypothalamus.hypothalamus import Hypothalamus
 from brain.occipital_lobe.occipital_lobe import OccipitalLobe
+from brain.parietal_lobe.parietal_lobe import ParietalLobe
 from brain.prefrontal_cortex.immutable_rules import IntegrityError, verify
 from brain.prefrontal_cortex.permission_gate import PermissionGate
 from brain.prefrontal_cortex.trust_manager import TrustManager
@@ -32,6 +36,7 @@ from brain.thalamus.router import Router
 from body.fingers import DirectoryManager, FileManager, TrashManager
 from body.hands import Hands
 from body.legs import BrowserActions
+from body.mouth.kilo import KiloEngine
 from core.audit import get_audit_log
 from core.config import ROOT, get_settings
 from face.api import (
@@ -39,15 +44,21 @@ from face.api import (
     routes_brain,
     routes_browser,
     routes_chat,
+    routes_code,
     routes_files,
+    routes_habits,
     routes_hands,
     routes_kill_switch,
+    routes_memory,
+    routes_parietal,
+    routes_personality,
     routes_plugins,
     routes_resources,
     routes_safety,
     routes_settings,
     routes_vision,
 )
+from face.api.chat_actions import ChatActionRunner
 from face.api.file_confirmations import PendingConfirmations
 
 FRONTEND_DIR = ROOT / "face" / "frontend"
@@ -57,6 +68,20 @@ PAGES_DIR = FRONTEND_DIR / "pages"
 #: The trash purge runs daily; items older than 30 days are
 #: handed to the operating system's recycle bin.
 TRASH_PURGE_INTERVAL_SECONDS = 86400
+
+#: How often the Hippocampus writes its short-term buffer to disk.
+#:
+#: Thirty seconds, and the number is a compromise between two ways of losing a
+#: memory. The buffer is RAM-only and bounded, so a crash loses everything since the
+#: last flush; and it evicts its weakest entry when full, so an unflushed buffer
+#: loses the entry the user would have minded most. Thirty seconds bounds the first
+#: to one turn of a conversation in practice.
+#:
+#: Deliberately *not* routed through the Consolidator's threshold. That threshold
+#: answers "what is worth keeping?", which is a curation question, and a curation
+#: question cannot be what decides whether the user's own words reach the disk. The
+#: Memory page still shows what was flushed and still scores it.
+MEMORY_FLUSH_INTERVAL_SECONDS = 30
 
 
 @asynccontextmanager
@@ -90,6 +115,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         "trash_purge",
         interval_seconds=TRASH_PURGE_INTERVAL_SECONDS,
     )
+    app.state.scheduler.add_job(
+        app.state.hippocampus.flush,
+        "memory_flush",
+        interval_seconds=MEMORY_FLUSH_INTERVAL_SECONDS,
+    )
     app.state.logger.log(
         "brainstem",
         "startup",
@@ -98,12 +128,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         stopped=app.state.kill_switch.is_killed(),
     )
     yield
+    # The last flush happens before the scheduler stops, so it is the scheduler that
+    # is still there to run it. Shutting down first would mean the periodic flush had
+    # already stopped and everything from the final half-minute is lost — which is
+    # exactly the conversation the user ended on.
+    try:
+        app.state.hippocampus.flush()
+    except Exception as exc:  # pragma: no cover - shutdown must not raise
+        app.state.logger.log("hippocampus", "shutdown_flush_failed", error=str(exc))
     app.state.scheduler.shutdown()
     app.state.logger.log("brainstem", "shutdown")
 
 
-def create_app() -> FastAPI:
+def create_app(memory_dir: Path = None) -> FastAPI:
     """Create and configure the ZUZZ FastAPI application.
+
+    Args:
+        memory_dir: Where the Hippocampus keeps its JSONL stores. Defaults to
+            ``storage/memory``. Injectable so a test — or a second instance on a
+            different port — cannot read or write the developer's own memory; the
+            default is unchanged so an ordinary call behaves exactly as before.
 
     Returns:
         A FastAPI instance with the UI mounted and routes registered.
@@ -205,6 +249,20 @@ def create_app() -> FastAPI:
         logger=app.state.logger,
         hypothalamus=app.state.hypothalamus,
     )
+    # The Parietal Lobe: where the user is and what is running. Built here for the same
+    # reason as the other two regions — it needs the kill switch, the audit log and
+    # the logger, none of which exist before this point. It is also given the
+    # Occipital Lobe's *capture backend*, not the Lobe, so that the monitor layout it
+    # reports is the same one that decides which pixels a screenshot grabs. Handing it
+    # the Lobe would have worked and been wrong twice over: it reads ``engine`` off it
+    # by hand, and it would create a second reader of the display layout that could
+    # disagree with the first.
+    app.state.parietal_lobe = ParietalLobe(
+        kill_switch=app.state.kill_switch,
+        audit=app.state.audit,
+        logger=app.state.logger,
+        capture_backend=getattr(getattr(app.state.occipital_lobe, "engine", None), "backend", None),
+    )
     # The Legs layer: the browser. Built here rather than inside the Body because it
     # needs collaborators that do not all exist until this point in the app — the
     # app's own trust manager, so a click is judged by the same trust level as a file
@@ -225,6 +283,45 @@ def create_app() -> FastAPI:
         # capture engine. Reading the shadowed attribute looked right and passed None.
         store=getattr(getattr(app.state.occipital_lobe, "engine", None), "store", None),
     )
+    # The Mouth layer: the coding agents. Built here for the same reasons as the Legs
+    # above — the engine needs the app's own FileManager, DirectoryManager, kill switch
+    # and logger, and a proposal whose "before" text came from a second reader would be
+    # a proposal whose rollback restores a fiction.
+    #
+    # Constructed directly rather than through ``get_engine()`` on purpose. The
+    # process-wide accessor would capture whichever collaborators happened to be first
+    # and hand them to every later caller, so a test that built its own app would find
+    # a stale FileManager on the engine and write through it. One engine per app, with
+    # that app's collaborators, is the arrangement that makes the app's kill switch the
+    # engine's kill switch by construction rather than by agreement.
+    app.state.kilo = KiloEngine(
+        files=app.state.file_manager,
+        directories=app.state.directory_manager,
+        logger=app.state.logger,
+        kill_switch=app.state.kill_switch,
+    )
+    # The Hippocampus, the Cerebellum and the Basal Ganglia. Three regions that
+    # change nothing on the machine, so none of them is given the gate — but the
+    # Basal Ganglia is given the app's *trust manager*, because a routine's steps
+    # are decided at the trust level in force when it runs, and a region holding a
+    # second reading of the level would plan against a number nothing else agrees
+    # with. It is built after ``app.state.permission_gate`` exists for the same
+    # reason: the gate it plans against is the app's, not its own.
+    app.state.hippocampus = Hippocampus(memory_dir)
+    app.state.cerebellum = Cerebellum()
+    app.state.basal_ganglia = BasalGanglia(
+        gate=app.state.permission_gate,
+        trust=app.state.trust,
+        # Planning a routine resolves every step's tool, and most tools check that
+        # the collaborator they need is attached. Resolved against an empty context
+        # that check reads "not attached" for everything, so a routine containing a
+        # perfectly good step would be reported unresolvable. Built per call rather
+        # than captured once, so a region attached after startup is visible.
+        tool_context=lambda: ChatActionRunner(app.state).tool_context(),
+    )
+    # Shipped routines are added on first run, and never over a routine the user
+    # has since edited or deleted. Their file wins either way.
+    app.state.basal_ganglia.seed()
     # Refuse to serve rather than run unguarded: an altered rule set means the
     # safety layer is not the one that was approved.
     try:
@@ -244,6 +341,11 @@ def create_app() -> FastAPI:
     app.include_router(routes_resources.router)
     app.include_router(routes_vision.router)
     app.include_router(routes_browser.router)
+    app.include_router(routes_memory.router)
+    app.include_router(routes_habits.router)
+    app.include_router(routes_personality.router)
+    app.include_router(routes_parietal.router)
+    app.include_router(routes_code.router)
 
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

@@ -58,11 +58,27 @@ class ToolContext:
             vision tools refuse on rather than guessing at a capture.
         browser: The :class:`~body.legs.browser_actions.BrowserActions`, for the
             browser tools. ``None`` when the Legs layer is not attached.
+        parietal_lobe: The :class:`~brain.parietal_lobe.parietal_lobe.ParietalLobe`,
+            for the system-awareness tools. ``None`` when the Lobe is not attached,
+            which those tools refuse on rather than guessing at a window title.
+        hippocampus: The :class:`~brain.hippocampus.hippocampus.Hippocampus`, for
+            the memory tools. ``None`` when the region is not attached, which those
+            tools refuse on rather than answering from an empty store and calling
+            it "nothing remembered".
+        basal_ganglia: The
+            :class:`~brain.basal_ganglia.basal_ganglia.BasalGanglia`, for the
+            routine tools. ``None`` when the region is not attached.
+        cerebellum: The :class:`~brain.cerebellum.cerebellum.Cerebellum`, for the
+            personality tools. ``None`` when the region is not attached.
+        kilo: The :class:`~body.mouth.kilo.kilo_engine.KiloEngine`, for the coding
+            tools. ``None`` when the engine is not attached, which those tools refuse
+            on rather than inventing code they did not write.
         write_decision: An *additional* decision the caller already holds, used by
-            ``browser_download`` — a download is both a ``download_files`` and a
-            ``write_files`` act, and only one decision is ever passed as the
-            primary one. Left to the route, because minting a second decision here
-            would be the Body allowing itself.
+            ``browser_download`` and by ``kilo_apply_changes``/``kilo_rollback`` — a
+            download is a ``download_files`` and a ``write_files`` act, and applying a
+            change set is a ``modify_project`` and a ``write_files`` act. In each case
+            only one decision is passed as the primary one. Left to the route, because
+            minting a second decision here would be the Body allowing itself.
     """
 
     hands: Any
@@ -71,6 +87,11 @@ class ToolContext:
     hypothalamus: Any = None
     occipital_lobe: Any = None
     browser: Any = None
+    parietal_lobe: Any = None
+    hippocampus: Any = None
+    basal_ganglia: Any = None
+    cerebellum: Any = None
+    kilo: Any = None
     write_decision: Any = None
 
 

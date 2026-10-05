@@ -275,11 +275,10 @@ whose installer does not use `PATH`, add its location to that table.
 
 ## 11. What Is Not Built Yet
 
-Phases 1, 2 and 3 are built, and all three have been verified against real
-hardware. ZUZZ can see the screen and drive a real browser, with 35 tools
-reachable from chat. These do not exist yet:
+Phases 1, 2, 3 and 6 are built, and all have been verified against real
+hardware. ZUZZ can see the screen, drive a real browser, and remember what you
+told it yesterday, with 64 tools reachable from chat. These do not exist yet:
 
-- **Memory** (conversation history on disk, semantic search) — Phase 6
 - **Encrypted key entry from the web UI** — the vault (`api_vault.py`) works and
   is tested, but connectors still read keys from `.env`
 - **System awareness** ("what is this machine doing") — Phase 3 Step 3

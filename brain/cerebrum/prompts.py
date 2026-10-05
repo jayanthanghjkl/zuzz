@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from brain.cerebrum.tool_catalogue import tool_catalog
-from core.config import get_personality
+from brain.cerebellum import get_cerebellum
 
 BASE_IDENTITY = (
     "You are ZUZZ, a personal digital brain assistant running on jayan's "
@@ -141,9 +141,16 @@ def build_tool_instructions() -> str:
 
 
 def build_system_prompt(
-    context: Optional[str] = None, tools: bool = True
+    context: Optional[str] = None, tools: bool = True, message: str = ""
 ) -> str:
     """Compose the system prompt for a conversation.
+
+    The voice comes from the Cerebellum rather than from a line composed here.
+    That line used to live in this function, which meant the description of how
+    ZUZZ speaks was in two places the moment the Cerebellum existed — and a
+    prompt that disagrees with itself about tone is a prompt that gets whichever
+    instruction the model happens to weight more. One module owns the voice now;
+    this function owns the identity and the rules.
 
     Args:
         context: Optional extra context, e.g. detected user activity.
@@ -151,18 +158,21 @@ def build_system_prompt(
             a model that does not know it has hands will not use them. Set False
             for a context that must not be answered with actions — the resource
             probes ask the layer what is true, not the model.
+        message: The user's message, used to read their register and mood. Empty
+            for the non-chat prompts, which is what they want: a resource probe
+            asking "is the GPU hot" does not want a reply shaped around how the
+            user is feeling.
 
     Returns:
         The full system prompt string.
     """
-    personality: Dict[str, Any] = get_personality()
-    tone = ", ".join(personality.get("tone", ["direct"]))
-    max_sentences = personality.get("max_sentences_per_reply", 8)
-
     parts = [
         BASE_IDENTITY,
-        f"Speaking style: {tone}. Keep prose under about {max_sentences} sentences "
-        "unless the user asks for detail. Action blocks do not count as prose.",
+        # Empty base: this function owns the identity and the rules, and the
+        # Cerebellum owns the voice. Passing an empty string and getting back
+        # just the personality block keeps the two sections separate in the
+        # prompt instead of woven into one paragraph.
+        get_cerebellum().apply_personality("", message=message),
         SAFETY_RULES,
     ]
     if tools:
@@ -215,7 +225,14 @@ def build_messages(
         Messages ready to post to Ollama or a cloud provider.
     """
     messages: List[Dict[str, str]] = [
-        {"role": "system", "content": build_system_prompt(context, tools=tools)}
+        {
+            "role": "system",
+            # The user's message is passed so the Cerebellum can read their
+            # register and mood for this turn. Not an optimisation: a prompt
+            # shaped by who is speaking to it is the difference between an
+            # assistant and a completion endpoint.
+            "content": build_system_prompt(context, tools=tools, message=user_message),
+        }
     ]
     messages.extend(
         {"role": m.get("role", "user"), "content": str(m.get("content", ""))}

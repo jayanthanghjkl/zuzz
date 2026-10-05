@@ -134,6 +134,32 @@ class KillSwitch(SwitchStatus):
         )
         return self.status()
 
+    def engage(
+        self,
+        source: str = SOURCE_UI,
+        reason: str = "",
+        last_action: str = "",
+    ) -> Dict[str, Any]:
+        """Engage the emergency stop. An alias for :meth:`trigger`.
+
+        The state-changing verb is ``trigger``, which is what the watchdog and the
+        out-of-process hotkey use because they are describing *something that fired*.
+        A caller asking for the stop directly — a route test, a supervisor, anything
+        reading ``is_killed()`` and wanting the opposite — reads better against
+        ``engage``/``reset`` than against ``trigger``/``reset``. Both spellings mean
+        one operation; this delegates rather than re-implementing so the idempotency
+        and audit rules stay in exactly one place.
+
+        Args:
+            source: One of :data:`~brain.spinal_cord.stop_state.SOURCES`.
+            reason: What caused the stop.
+            last_action: The action in flight when it stopped, if any.
+
+        Returns:
+            The status after engaging.
+        """
+        return self.trigger(source=source, reason=reason, last_action=last_action)
+
     # -- resetting --------------------------------------------------------
 
     def cooldown_remaining(self) -> int:

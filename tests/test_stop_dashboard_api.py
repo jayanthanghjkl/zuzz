@@ -125,6 +125,13 @@ def test_brain_status_lists_the_registered_jobs(client: TestClient) -> None:
     listed here because a job the user cannot see is a job they cannot
     account for. ``resource_cycle`` is Step 6's Hypothalamus tick, which reads
     the sensors and evicts a model before VRAM runs out — the same reason.
+
+    ``memory_flush`` is Phase 6's Hippocampus write-through, and it earns its
+    place in this list for a sharper reason than the others. The other three do
+    housekeeping whose absence is invisible; this one is what carries the user's
+    own words to disk, so a stop that silently pauses it is a stop that will lose
+    whatever was said in the half-minute before it. A job the user cannot see is
+    a job they cannot account for, and this is the one they would want to notice.
     """
     jobs = client.get("/api/brain/status").json()["scheduler"]["jobs"]
     assert {job["name"] for job in jobs} == {
@@ -132,4 +139,5 @@ def test_brain_status_lists_the_registered_jobs(client: TestClient) -> None:
         "model_reaper",
         "resource_cycle",
         "trash_purge",
+        "memory_flush",
     }

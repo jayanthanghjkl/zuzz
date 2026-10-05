@@ -65,6 +65,11 @@ storage/memory/*
 storage/temp/
 storage/cache/
 storage/screenshots/
+# Repo-root temp/ is scratch, not storage/. It is where the coding tools put a
+# throwaway workspace and the smoke scripts that drive them. Nothing in it is a
+# deliverable, and committing it would put a probe.py from someone's debugging
+# session into the tree under a name that reads like a supported entry point.
+temp/
 # Phase 3 runtime state. downloads/ is the quarantine every browser download
 # lands in before the Amygdala classifies it; sessions/ holds per-domain browser
 # cookies. Both are per-machine state and neither belongs in the repository.

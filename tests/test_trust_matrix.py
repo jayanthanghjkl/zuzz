@@ -92,6 +92,66 @@ APPROVED_MATRIX: Dict[str, tuple] = {
     "browse_internet": (ASK, ASK, ASK, ASK, AUTO),
     "web_automation": (ASK, ASK, AUTO, AUTO, AUTO),
     "download_files": (ASK, ASK, ASK, ASK, ASK),
+    # The Parietal Lobe's row, and the only one in this file that auto-approves at
+    # trust level 1. Stated here as a spec cell rather than left to the config so that
+    # "auto at every level" is a decision somebody wrote down and a test checks,
+    # rather than a default nobody looked at. The argument is in
+    # config/trust_levels.json: a window title is not a file, it cannot hold a
+    # rendered bank portal the way a screenshot can, and the inference it feeds is
+    # reduced to one word on this machine before the model sees anything. Over-prompting
+    # here would train users to click the approval without reading it, which is the
+    # cost the row is deliberately accepting.
+    "system_awareness": (AUTO, AUTO, AUTO, AUTO, AUTO),
+    # Phase 6. Two rows with opposite shapes, and the shape is the point.
+    #
+    # ``memory_access`` is auto everywhere, which is a real departure from level
+    # 1's "ask for everything" and the second row in this file to do it. Stated as
+    # a spec cell rather than left to the config so that "auto at every level" is a
+    # decision somebody wrote down and a test checks. Memory is local, and the
+    # Memory page makes every stored item readable and erasable by hand, so the
+    # permission the row withholds is available on demand instead of as a dialog.
+    # A prompt on every "as you mentioned" is how people learn to click prompts
+    # through, which is the cost this row deliberately accepts.
+    #
+    # ``routine_management`` asks at 1 and 2 and borrows mouse_keyboard, because a
+    # routine is a stored bundle of desktop acts and the user approved those acts
+    # individually. It is not auto at the low levels even though reading is
+    # harmless: the category also covers writing, and the matrix has no
+    # per-operation axis, so a row loose for reading has to be loose for writing.
+    "memory_access": (AUTO, AUTO, AUTO, AUTO, AUTO),
+    "routine_management": (ASK, ASK, AUTO, AUTO, AUTO),
+    # ``personality_access`` is the third auto-everywhere row, and the cheapest of
+    # the three: it reaches no file, no window and no other machine. Reading the
+    # register and shifting one editable knob are both things ZUZZ does *about
+    # its own replies*, and a permission dialog there would be a prompt the user
+    # has to read in order to find out whether ZUZZ was going to sound friendlier.
+    # The write half is bounded by the region instead — only keys the Cerebellum
+    # lists as editable can be set, which keeps the owner's name out of reach.
+    "personality_access": (AUTO, AUTO, AUTO, AUTO, AUTO),
+    # Phase 4, body/mouth/kilo. Stated here rather than left to the config, because
+    # these five are the first rows whose strongest capability is unattended at level
+    # 4 and the argument for each is the thing most worth pinning.
+    #
+    # generate_code and modify_project borrow mouse_keyboard's shape. modify_project is
+    # stricter than write_files, which auto-approves from 2 — the gap is deliberate and
+    # is the row's whole reason for existing: a bulk rewrite of a project directory is
+    # not the act the user approved when they trusted ZUZZ with reading a file.
+    #
+    # execute_code is identical to run_python on purpose. A test file the agent wrote a
+    # moment ago is not safer to run than one the user wrote.
+    #
+    # git_operations is asked through level 4 because it can make commits unreachable.
+    # Read-only git is not in this row; it is read_files, mapped in kilo_git.
+    #
+    # install_packages asks at every level including 5, and that is immutable rule R7
+    # rather than a preference: a wheel runs its author's build hooks, and an agent loop
+    # can hallucinate a package name. This is the fifth ask-everywhere row alongside
+    # install_software, download_files, delete_files, run_admin and access_credentials.
+    "generate_code": (ASK, ASK, AUTO, AUTO, AUTO),
+    "execute_code": (ASK, ASK, ASK, ASK, AUTO),
+    "modify_project": (ASK, ASK, AUTO, AUTO, AUTO),
+    "git_operations": (ASK, ASK, ASK, ASK, AUTO),
+    "install_packages": (ASK, ASK, ASK, ASK, ASK),
 }
 
 

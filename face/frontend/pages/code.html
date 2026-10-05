@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Code</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/code.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Coding Agents</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <a class="ghost-btn tab-link" href="/pages/memory.html" title="What ZUZZ remembers">Memory</a>
+      <a class="ghost-btn tab-link" href="/pages/files.html" title="Files and folders">Files</a>
+      <a class="ghost-btn tab-link" href="/" title="Back to chat">Chat</a>
+    </div>
+  </header>
+
+  <main class="code-layout">
+    <!-- left: what to ask for -->
+    <div>
+      <section class="code-panel" aria-label="Ask for code">
+        <div class="panel-head">
+          <span class="panel-title">Ask for code</span>
+          <span class="muted">nothing is written until you apply a proposal</span>
+        </div>
+        <p class="prose">
+          The Architect designs first, then the Coder implements the design. You get the
+          design back with the diff so you can see <em>why</em> the files are shaped the
+          way they are, and a proposal id you apply in a separate, separately-gated step.
+        </p>
+        <div class="form-grid">
+          <label>Workspace
+            <input id="gen-workspace" list="workspace-list" placeholder="blank = the scratch workspace" />
+            <datalist id="workspace-list"></datalist>
+          </label>
+          <label>Agent
+            <select id="gen-agent"></select>
+          </label>
+        </div>
+        <label class="field">What to build
+          <textarea id="gen-description" placeholder="a Flask API with a health check and one POST endpoint"></textarea>
+        </label>
+        <div class="btn-row">
+          <label class="check"><input id="gen-plan-only" type="checkbox" /> Design only</label>
+          <button id="gen-go" class="send-btn" type="button">Propose</button>
+          <button id="gen-cancel" class="ghost-btn hidden" type="button">Stop</button>
+        </div>
+        <div id="gen-design" class="design-box hidden"></div>
+      </section>
+
+      <section class="code-panel" aria-label="Work on one file">
+        <div class="panel-head">
+          <span class="panel-title">Work on one file</span>
+          <span class="muted">each of these proposes; none of them writes</span>
+        </div>
+        <div class="form-grid">
+          <label>Path<input id="file-path" placeholder="app/handlers.py" /></label>
+          <label>Goal<input id="file-goal" placeholder="cover the error paths" /></label>
+        </div>
+        <div class="btn-row">
+          <button id="do-review" class="ghost-btn" type="button">Review</button>
+          <button id="do-refactor" class="ghost-btn" type="button">Refactor</button>
+          <button id="do-tests" class="ghost-btn" type="button">Write tests</button>
+        </div>
+        <div id="file-out" class="findings"></div>
+      </section>
+
+      <section class="code-panel" aria-label="Something broke">
+        <div class="panel-head">
+          <span class="panel-title">Something broke</span>
+          <span class="muted">the traceback is enough; the source is a bonus</span>
+        </div>
+        <label class="field">The error
+          <textarea id="err-text" placeholder="KeyError: 'confirmation_id'"></textarea>
+        </label>
+        <label class="field">The code <span class="muted">(optional)</span>
+          <textarea id="err-code" placeholder="leave blank if you only have the traceback"></textarea>
+        </label>
+        <div class="btn-row"><button id="do-debug" class="send-btn" type="button">Diagnose</button></div>
+        <div id="err-out" class="findings"></div>
+      </section>
+
+      <section class="code-panel" aria-label="Run the tests">
+        <div class="panel-head">
+          <span class="panel-title">Run the tests</span>
+          <span class="muted">an argument vector, never a shell</span>
+        </div>
+        <div class="form-grid">
+          <label>Test path<input id="run-path" value="tests" /></label>
+          <label>Workspace<input id="run-workspace" placeholder="blank = scratch" /></label>
+        </div>
+        <div class="btn-row"><button id="do-run" class="ghost-btn" type="button">Run pytest</button></div>
+        <div id="run-out" class="term-out"></div>
+      </section>
+    </div>
+
+    <!-- right: what ZUZZ can do, and what it wants -->
+    <div>
+      <section class="code-panel" aria-label="The agents">
+        <div class="panel-head">
+          <span class="panel-title">The agents</span>
+          <button id="status-refresh" class="ghost-btn" type="button">Refresh</button>
+        </div>
+        <div id="agent-list" class="agent-list"></div>
+        <div id="routing" class="routing"></div>
+        <p class="prose">
+          Nothing on this page writes without asking. Two rows ask at every trust level
+          including the highest: <strong>installing a package</strong> (a wheel runs its
+          author's build hooks) and nothing else — and the folder these agents write in is
+          refused outright if it is ZUZZ's own source tree, at every trust level.
+        </p>
+        <div id="policy" class="policy"></div>
+      </section>
+
+      <section class="code-panel" aria-label="The workspace">
+        <div class="panel-head">
+          <span class="panel-title">Workspace</span>
+          <button id="tree-refresh" class="ghost-btn" type="button">Refresh</button>
+        </div>
+        <label class="field">Name or path<input id="ws-path" placeholder="blank = the scratch workspace" /></label>
+        <div id="ws-head" class="ws-head muted"></div>
+        <div id="ws-tree" class="tree"></div>
+        <div id="ws-git" class="git-out"></div>
+      </section>
+
+      <section class="code-panel" aria-label="Proposals">
+        <div class="panel-head">
+          <span class="panel-title">Proposals</span>
+          <span id="diff-count" class="muted"></span>
+        </div>
+        <p class="prose">
+          Everything the agents have proposed and you have not yet decided on. They live
+          in memory only — a restart clears them, so an approval can never outlive the
+          thing you were shown.
+        </p>
+        <div id="diff-list" class="diff-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- the 202. One prompt, naming the folder and both decisions. -->
+  <div id="confirm-modal" class="modal hidden">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title">Approve this?</h2>
+      <div id="confirm-target" class="modal-target"></div>
+      <ul id="confirm-facts" class="modal-facts"></ul>
+      <p id="confirm-write" class="modal-write hidden">
+        This also writes files. It needs a second permission for the folder itself, and
+        that one is refused rather than asked if your trust level does not allow it.
+      </p>
+      <p id="confirm-workspace" class="modal-workspace hidden"></p>
+      <label class="check"><input id="confirm-dry" type="checkbox" /> Describe it only — do not perform it</label>
+      <div class="btn-row">
+        <button id="confirm-yes" class="send-btn" type="button">Approve</button>
+        <button id="confirm-no" class="ghost-btn" type="button">No</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/js/code.js"></script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Memory</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/memory.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Memory &amp; Voice</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <a class="ghost-btn tab-link" href="/pages/habits.html" title="Routines ZUZZ can run">Habits</a>
+      <a class="ghost-btn tab-link" href="/pages/hands.html" title="Desktop">Desktop</a>
+      <a class="ghost-btn tab-link" href="/" title="Back to chat">Chat</a>
+    </div>
+  </header>
+
+  <main class="mem-layout">
+    <div>
+      <section class="mem-panel" aria-label="What ZUZZ remembers">
+        <div class="panel-head">
+          <span class="panel-title">What ZUZZ remembers</span>
+          <button id="history-refresh" class="ghost-btn" type="button">Refresh</button>
+        </div>
+
+        <p class="prose">
+          Two tiers, and the difference is the point. Anything <em>in memory only</em> can
+          still be lost — it has not been written anywhere. Only what reaches the disk survives
+          a restart, and only memories scoring at or above <strong id="profile-threshold">0.50</strong>
+          are eligible to go there.
+        </p>
+
+        <div class="tier-grid">
+          <div class="tier ram" id="tier-ram">
+            <span class="tier-label">in memory only</span>
+            <span class="tier-value">0</span>
+            <span class="tier-note"></span>
+            <div class="kind-row"></div>
+          </div>
+          <div class="tier" id="tier-disk">
+            <span class="tier-label">written to disk</span>
+            <span class="tier-value">0</span>
+            <span class="tier-note"></span>
+            <div class="kind-row"></div>
+          </div>
+        </div>
+
+        <div class="kind-row">
+          <span class="kind-chip">total<b id="profile-total">0</b></span>
+          <span class="kind-chip">oldest<b id="profile-oldest">nothing yet</b></span>
+        </div>
+        <div class="kind-row" id="profile-topics"></div>
+      </section>
+
+      <section class="mem-panel" aria-label="Remember something">
+        <div class="panel-head">
+          <span class="panel-title">Tell it something</span>
+          <span class="muted">stored in memory, not yet on disk</span>
+        </div>
+        <div class="form-grid">
+          <label>Kind
+            <select id="remember-kind">
+              <option value="fact">fact</option>
+              <option value="preference">preference</option>
+              <option value="mistake">mistake</option>
+              <option value="task">task</option>
+              <option value="conversation">conversation</option>
+            </select>
+          </label>
+          <label>Key<input id="remember-key" placeholder="editor" title="Subject, for preferences and facts" /></label>
+          <label>Value<input id="remember-value" placeholder="neovim" title="Answer, for preferences" /></label>
+          <label>Importance<input id="remember-importance" type="number" min="0" max="1" step="0.05" value="0.6" /></label>
+        </div>
+        <div class="form-grid">
+          <label>What to remember
+            <textarea id="remember-text" placeholder="the user's editor is neovim, not vscode"></textarea>
+          </label>
+          <label>One-line summary
+            <input id="remember-summary" placeholder="editor: neovim" />
+          </label>
+        </div>
+        <div class="btn-row">
+          <button id="remember-go" class="send-btn" type="button">Remember</button>
+          <span class="muted">Importance decides what gets promoted. Facts and preferences are worth keeping; most conversation is not.</span>
+        </div>
+      </section>
+
+      <section class="mem-panel" aria-label="Search">
+        <div class="panel-head">
+          <span class="panel-title">Recall</span>
+          <span id="recall-count" class="muted"></span>
+        </div>
+        <p class="prose">
+          Ranked by IDF-weighted keyword overlap — no model, no embeddings. A word that
+          appears in many memories counts for less than a word that appears in one, which is
+          why a distinctive term finds the right memory where a common word would not.
+        </p>
+        <div class="form-grid">
+          <label>Question
+            <input id="recall-query" placeholder="which editor do I use?" />
+          </label>
+          <label>Kind
+            <select id="recall-kind">
+              <option value="">any</option>
+              <option value="fact">fact</option>
+              <option value="preference">preference</option>
+              <option value="mistake">mistake</option>
+              <option value="task">task</option>
+              <option value="conversation">conversation</option>
+            </select>
+          </label>
+        </div>
+        <div class="btn-row"><button id="recall-go" class="send-btn" type="button">Search</button></div>
+        <div id="recall-list" class="mem-list"></div>
+      </section>
+
+      <section class="mem-panel" aria-label="History">
+        <div class="panel-head">
+          <span class="panel-title">Everything held</span>
+          <button id="candidates-refresh" class="ghost-btn" type="button">Re-score</button>
+        </div>
+        <p class="prose">
+          Newest first, with each memory's score against the threshold. The tick on each bar is
+          the threshold; a bar that stops short of the tick is why that memory is still in RAM.
+        </p>
+        <span id="candidate-count" class="muted"></span>
+        <div id="history-list" class="mem-list"></div>
+      </section>
+    </div>
+
+    <div>
+      <section class="mem-panel" aria-label="Consolidation">
+        <div class="panel-head">
+          <span class="panel-title">Consolidation</span>
+          <span id="consolidate-detail" class="muted"></span>
+        </div>
+        <p class="prose">
+          Promotion is the only thing that writes to disk, and it happens only when you ask.
+          ZUZZ does not consolidate on a timer in the background — a background promotion
+          would make the boundary between "in memory" and "permanent" a thing that happens
+          while you are not looking.
+        </p>
+        <div class="btn-row">
+          <button id="consolidate-dry" class="ghost-btn" type="button">Preview</button>
+          <button id="consolidate-go" class="send-btn" type="button">Promote to disk</button>
+        </div>
+      </section>
+
+      <section class="mem-panel" aria-label="Forget">
+        <div class="panel-head">
+          <span class="panel-title">Forget</span>
+        </div>
+        <div class="forget-box">
+          <p class="prose">
+            Erasing is irreversible and there is no "forget everything" — you give a cutoff date
+            and only memories <em>older</em> than it go. Preview first: the real button stays
+            disabled until a preview has matched something, so the count you see is the count
+            that gets erased.
+          </p>
+          <div class="field">
+            <label for="forget-before">Remove memories older than</label>
+            <input id="forget-before" type="date" />
+          </div>
+          <div class="btn-row" style="margin-top:10px">
+            <button id="forget-preview" class="ghost-btn" type="button">Preview</button>
+            <button id="forget-commit" class="send-btn danger" type="button" disabled>Forget for good</button>
+          </div>
+          <div id="forget-outcome" class="forget-outcome"></div>
+        </div>
+        <p class="prose" style="margin-top:10px">
+          Every forget is recorded in the audit trail with the cutoff and the count — never with
+          the content of what was removed.
+        </p>
+      </section>
+
+      <section class="mem-panel" aria-label="Voice">
+        <div class="panel-head">
+          <span class="panel-title">Voice</span>
+          <span class="muted">applies to the next reply</span>
+        </div>
+        <p class="prose">
+          ZUZZ's name, its owner and its wake word are <strong>not</strong> editable from here
+          (<span id="voice-editable">—</span>). The first three have fixed vocabularies, so they
+          are dropdowns rather than free text: a value ZUZZ cannot speak should not be
+          typeable.
+        </p>
+        <div class="voice-grid">
+          <label class="field">Style<select id="voice-style"></select></label>
+          <label class="field">Humor<select id="voice-humor"></select></label>
+          <label class="field">Verbosity<select id="voice-verbosity"></select></label>
+        </div>
+        <div class="kind-row" style="margin-top:10px">
+          <span class="kind-chip">tone<b id="voice-tone">—</b></span>
+          <span class="kind-chip">max sentences<b id="voice-max">—</b></span>
+          <span class="kind-chip">quirks<b id="voice-quirks">—</b></span>
+        </div>
+        <div class="voice-preview" id="greeting-preview"></div>
+        <div class="voice-preview" id="signoff-preview"></div>
+        <div class="btn-row" style="margin-top:10px">
+          <button id="voice-save" class="send-btn" type="button">Save voice</button>
+          <span class="muted" id="voice-path"></span>
+        </div>
+      </section>
+
+      <section class="mem-panel" aria-label="Mood">
+        <div class="panel-head">
+          <span class="panel-title">Mood</span>
+        </div>
+        <p class="prose">
+          Read from the wording, not from anything else. Four moods, each with an instruction the
+          reply has to follow. This is a keyword match over a small vocabulary — it will get
+          "fine, thanks" wrong, and that is the trade for not sending your messages anywhere.
+        </p>
+        <div class="field">
+          <label for="mood-message">A message</label>
+          <input id="mood-message" placeholder="this is not working AGAIN" />
+        </div>
+        <div class="btn-row" style="margin-top:10px">
+          <button id="mood-detect" class="ghost-btn" type="button">Read the mood</button>
+          <span id="mood-badge" class="mood-badge">—</span>
+        </div>
+        <p class="mood-instruction" id="mood-instruction"></p>
+        <div class="voice-preview" id="mood-reply"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/js/memory.js"></script>
+</body>
+</html>

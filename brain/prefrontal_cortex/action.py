@@ -71,6 +71,122 @@ class ActionCategory(str, Enum):
     BROWSE_INTERNET = "browse_internet"
     WEB_AUTOMATION = "web_automation"
     DOWNLOAD_FILES = "download_files"
+    #: Added by Phase 3 Step 3 for the Parietal Lobe. Its own row rather than
+    #: borrowing ``read_files``, and the reason is not politeness about a gauge —
+    #: it is that a window title is not a file. Reading ``notes.txt`` shows the
+    #: user what ZUZZ read; reading the title bar shows whatever the user's open
+    #: document happens to be called, which for many people is a customer name, a
+    #: salary figure or the first line of something they have not finished
+    #: typing. That is a different disclosure with a different shape, so it gets
+    #: its own row and can be tuned on the evidence rather than by analogy.
+    #:
+    #: The row itself is ``auto`` at every level, and that is a considered
+    #: decision rather than an oversight. ``visual_capture`` asks at levels 1 and
+    #: 2 because a screenshot can hold a bank portal; a title bar cannot hold a
+    #: rendered form, and ZUZZ reads it without sending it anywhere — the
+    #: inference stays local and only the resulting category reaches the model.
+    #: Trust level 1 is "ask permission for everything", so this is the one
+    #: documented departure from that, and :mod:`brain.parietal_lobe` states it
+    #: in its own module docstring rather than leaving it to be discovered.
+    SYSTEM_AWARENESS = "system_awareness"
+    #: Added by Phase 6 for the Hippocampus. Its own row rather than borrowing
+    #: ``read_files``, and the reason is that memory is a *disclosure with a
+    #: lifetime*, which a file read is not. Reading ``notes.txt`` shows the user
+    #: exactly what ZUZZ read and the read ends; a recall can return a
+    #: preference the user gave in a conversation three months ago and act on it,
+    #: which is a different kind of exposure from the one ``read_files`` was
+    #: tuned for.
+    #:
+    #: The row is ``auto`` at every level, which is the same deliberate departure
+    #: ``system_awareness`` documents, for the same underlying reason. Memory is
+    #: local — nothing here sends anything off the machine — and the alternative
+    #: is a prompt every time ZUZZ says "as you mentioned", which trains people to
+    #: click prompts through. That is the failure mode that makes prompts worse
+    #: than none, and it is why the memory page exists instead: every stored
+    #: memory is listed, readable and erasable by hand, so the permission the row
+    #: withholds is available on demand rather than as a dialog.
+    #:
+    #: What this row does NOT cover: erasing. ``forget_before`` is the one
+    #: irreversible operation in the region and it is reachable at every level,
+    #: which is a real trade-off rather than an oversight — the counter-argument
+    #: is that a machine which cannot forget is a machine that holds a wrong
+    #: statement about its user forever with no recourse. The mitigation is
+    #: structural rather than permission-based: :class:`MemoryRefused` makes an
+    #: unreadable date an error rather than a silent "forget everything", so the
+    #: destructive direction always requires the caller to state a real date.
+    MEMORY_ACCESS = "memory_access"
+    #: Added by Phase 6 for the Basal Ganglia. Deliberately *not* auto at the low
+    #: levels even though listing and reading a routine is harmless, because the
+    #: category covers writing them, and a row that is loose for reading has to
+    #: be loose for writing too — the matrix has no per-operation axis.
+    #:
+    #: The shape borrowed is ``mouse_keyboard``'s, which is the right neighbour:
+    #: a routine is a stored bundle of desktop acts, and the user approved those
+    #: acts once, individually, without them being bundled. So from level 3, where
+    #: the user trusts ZUZZ with the desktop, they trust it with a saved sequence
+    #: of desktop acts. It asks at 1 and 2, where evicting or rewriting a routine
+    #: is the assistant reorganising its own authority rather than the user's own
+    #: housekeeping.
+    #:
+    #: A routine is never run without its steps being re-checked against the
+    #: gate at the current trust level — the stored decision that built it is not
+    #: reused. A routine created at level 5 and executed at level 1 runs nothing
+    #: that level 1 would refuse, which is why storing one does not store a
+    #: permission.
+    ROUTINE_MANAGEMENT = "routine_management"
+    #: Added by Phase 6 for the Cerebellum, and the third row in this session
+    #: that is ``auto`` at every level.
+    #:
+    #: What it covers is narrow on purpose: reading the register, moving one
+    #: editable knob, and detecting the tone of a single message. The knob is the
+    #: part worth being careful about, and it is bounded structurally rather than
+    #: by permission — only the keys the Cerebellum itself lists as editable can be
+    #: set, and the identity of the owner is not among them. That is what keeps
+    #: ``personality_update_setting("name", ...)`` from being a thing the model can
+    #: do by accident, and it is why this row needs no separate stricter row for
+    #: the write half the way ``routine_management`` does.
+    #:
+    #: A prompt here would be worse than nothing. ZUZZ choosing a terser register
+    #: because the user is frustrated is the feature; ask first and it becomes
+    #: "ZUZZ would like to adjust its tone, approve?" every time someone is under
+    #: pressure, which is precisely when the answer will be clicked through without
+    #: being read.
+    PERSONALITY_ACCESS = "personality_access"
+    #: Added by Phase 4 for ``body/mouth/kilo``, the coding agents. Five rows, and
+    #: the shape of each is argued rather than inherited — a permission row that is
+    #: merely a neighbour's shape stops being re-examined when the neighbour changes.
+    #:
+    #: * ``generate_code`` — source text produced from a description and a failure.
+    #:   It reads the user's problem and acts on nothing else, so the exposure is the
+    #:   model's reasoning leaving the machine. It borrows ``mouse_keyboard``'s shape
+    #:   (ask at 1 and 2, auto from 3) rather than ``read_files``'s, because at level 2
+    #:   a read is trusted with a file the user pointed at and this is not that.
+    #:
+    #: * ``execute_code`` — running a test suite or a script in a workspace. It is
+    #:   deliberately identical to ``run_python``, because a test file an agent wrote
+    #:   a moment ago is not a gentler thing to run than one the user wrote.
+    #:
+    #: * ``modify_project`` — writing generated code into a user-designated workspace.
+    #:   Its own row rather than borrowing ``write_files`` because it is *stricter*:
+    #:   ``write_files`` auto-approves from level 2 and this asks until 3. That gap is
+    #:   the whole point — from level 3 the user trusts ZUZZ with the desktop, and
+    #:   only then with a directory of files it rewrote in one go.
+    #:
+    #: * ``git_operations`` — commits, branches, and history. Reads (``status``,
+    #:   ``log``, ``diff``) are not this category; they are ``read_files``, and
+    #:   ``body.mouth.kilo.kilo_git`` maps them there rather than borrowing a wider
+    #:   row for a read. Force-push and ``reset --hard`` are refused outright at every
+    #:   level, in that module, because a row cannot say "except the destructive ones".
+    #:
+    #: * ``install_packages`` — ``pip install``. See the note in
+    #:   ``config/trust_levels.json``: it asks at all five levels, because immutable
+    #:   rule R7 does not have a trust-level escape hatch and a wheel executes its
+    #:   author's build hooks.
+    GENERATE_CODE = "generate_code"
+    EXECUTE_CODE = "execute_code"
+    MODIFY_PROJECT = "modify_project"
+    GIT_OPERATIONS = "git_operations"
+    INSTALL_PACKAGES = "install_packages"
 
     def __str__(self) -> str:
         """Return the config key for this category."""

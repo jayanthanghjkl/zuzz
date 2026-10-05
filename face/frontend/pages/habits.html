@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Habits</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/habits.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Habits</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <a class="ghost-btn tab-link" href="/pages/memory.html" title="Memory and voice">Memory</a>
+      <a class="ghost-btn tab-link" href="/pages/hands.html" title="Desktop">Desktop</a>
+      <a class="ghost-btn tab-link" href="/" title="Back to chat">Chat</a>
+    </div>
+  </header>
+
+  <main class="habits-layout">
+    <div>
+      <section class="habits-panel" aria-label="Saved routines">
+        <div class="panel-head">
+          <span class="panel-title">Routines</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="routine-count" class="muted"></span>
+            <button id="routines-refresh" class="ghost-btn" type="button">Refresh</button>
+          </div>
+        </div>
+        <p class="prose">
+          A routine is a stored sequence of ordinary tool calls, not a script and not a
+          privileged path around the permission gate. Each step is judged on its own, so a
+          routine can be half permitted at a given trust level — the seeds show it:
+          <code>start_work</code> is only fully automatic at trust level 5, because its third
+          step navigates a browser and <em>browse_internet</em> asks below that.
+        </p>
+        <div id="routine-list" class="routine-list"></div>
+        <p class="field-note">Stored in <code id="routines-path"></code> — config on purpose, not
+          in the memory store, so a routine can be read and edited by hand.</p>
+      </section>
+
+      <section class="habits-panel" aria-label="New routine">
+        <div class="panel-head">
+          <span class="panel-title">Save a new routine</span>
+        </div>
+        <p class="prose">
+          New routines are stored <strong>disarmed</strong>, whatever this form says. Creating a
+          routine and arming it are two acts: a POST that did both would mean you could not read
+          what you had just built before it started opening applications. Arm it from the list
+          above when you have looked at it.
+        </p>
+        <div class="form-grid">
+          <label>Name<input id="new-name" placeholder="morning_setup" title="lowercase letters, digits, underscores" /></label>
+          <label>Trigger
+            <select id="new-trigger">
+              <option value="manual">manual — only when asked</option>
+              <option value="time">time — at a given hour</option>
+              <option value="app">app — when an application opens</option>
+              <option value="command">command — on a command line</option>
+            </select>
+          </label>
+          <label>Trigger value<input id="new-trigger-value" placeholder="09:00, chrome, git commit" /></label>
+          <label>Description<input id="new-description" placeholder="how the day starts" /></label>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label for="new-steps">Steps — one per line, <code>tool | key=value, key=value | why</code></label>
+          <textarea id="new-steps" rows="4" placeholder="open_app | app_name=chrome | the browser is first&#10;browser_navigate | url=http://standup | the notes"></textarea>
+        </div>
+        <p class="field-note">
+          Each tool name must be one ZUZZ actually has, and the parameters must be ones its
+          schema accepts — the server checks both and refuses the save with the reason if not.
+          Parameters are not optional in practice: most tools require one, so a step line
+          without them could never be saved.
+        </p>
+        <div class="btn-row">
+          <button id="routine-create" class="send-btn" type="button">Save routine</button>
+        </div>
+      </section>
+
+      <section class="habits-panel" aria-label="Detected habits">
+        <div class="panel-head">
+          <span class="panel-title">Habits ZUZZ has noticed</span>
+          <span id="pattern-count" class="muted"></span>
+        </div>
+        <p class="prose">
+          Repeated sequences in the activity log. Read-only: noticing a pattern is not deciding
+          to act on it, and nothing here builds or arms a routine on its own.
+        </p>
+        <div class="form-grid" style="grid-template-columns:160px 1fr">
+          <label>Repetitions<input id="pattern-min" type="number" min="2" max="100" value="5" /></label>
+          <div class="btn-row" style="align-self:end">
+            <button id="patterns-scan" class="ghost-btn" type="button">Scan again</button>
+            <button id="patterns-refresh" class="ghost-btn" type="button">Reset to default</button>
+          </div>
+        </div>
+        <div id="pattern-list" class="pattern-list"></div>
+      </section>
+    </div>
+
+    <div>
+      <section class="habits-panel" aria-label="Execution plan">
+        <div class="panel-head">
+          <span class="panel-title">Plan</span>
+          <span class="muted">runs nothing</span>
+        </div>
+        <p class="prose">
+          Press <strong>Plan</strong> on a routine and every step comes back with the verdict it
+          would get at the current trust level. All of them are resolved before any of them
+          would run, so you see the whole picture rather than discovering the refused step after
+          the first three have already happened.
+        </p>
+        <div id="plan" class="plan"></div>
+        <p class="field-note">
+          There is no endpoint that executes a whole routine, and that is the point rather than
+          an omission: the permitted steps are issued one at a time, each through the same gate
+          as any other action. Ticking a step here records that you approve it; it does not
+          unlock anything by itself.
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/js/habits.js"></script>
+</body>
+</html>

@@ -136,6 +136,18 @@ def get_vision_thresholds() -> Dict[str, Any]:
     return _read_json("vision_thresholds.json")
 
 
+def get_routines() -> Dict[str, Any]:
+    """Return the user's saved routines from ``config/routines.json``.
+
+    Not memoised, for the same reason ``get_trust_levels`` is not: routines change
+    from the Habits page and from a tool call, and a cached copy would show the
+    list as it was before the routine that was just created. Read fresh; the file
+    is small and the write path in
+    :mod:`brain.basal_ganglia.routine_registry` replaces it atomically.
+    """
+    return _read_json("routines.json")
+
+
 def env(name: str, default: str = "") -> str:
     """Read an environment variable, falling back to ``default``.
 

@@ -15,6 +15,13 @@ Both surfaces return the same shape. ``POST /api/chat`` returns
 then emits an ``actions`` event carrying the same envelope plus the authoritative
 ``prose``, so the client can replace what it streamed with the reply the user
 should actually read.
+
+**A finished turn is remembered.** Both surfaces hand the exchange to the
+Hippocampus, which is the only way anything reaches the memory store at all — the
+region has no listener of its own and no way to notice a conversation happened. The
+call is last, and every exception is swallowed: a reply the user is reading must
+not be withheld because a buffer append failed, and a machine that cannot answer a
+question is a worse failure than one that cannot remember it.
 """
 
 from __future__ import annotations
@@ -97,6 +104,35 @@ def _wire(envelope: Dict[str, Any]) -> Dict[str, Any]:
 _ACTION_KEYS = ("executed", "blocked", "pending", "errors", "warnings", "summary")
 
 
+def remember_turn(request: Any, user_message: str, reply: str) -> None:
+    """Hand one finished exchange to the Hippocampus.
+
+    Never raises. The Hippocampus refuses on an empty message, and a refusal here
+    would surface as a failed chat — so an exchange with nothing worth storing is
+    simply not stored, which is what the refusal means anyway.
+
+    The user message is what goes in, not the routed one. The model's own words are
+    an answer derived from a prompt; storing them as though the user had said them
+    is how a memory store fills up with the assistant talking to itself.
+
+    Args:
+        request: A ``Request`` or a ``WebSocket``. Both carry ``.app``, and the
+            WebSocket path is the one the UI uses.
+        user_message: What the user typed.
+        reply: What ZUZZ answered, with every action fence already stripped.
+
+    Returns:
+        Nothing.
+    """
+    memory = getattr(request.app.state, "hippocampus", None)
+    if memory is None:
+        return
+    try:
+        memory.remember_conversation(user_message, reply, context="chat")
+    except Exception:
+        return
+
+
 @router.post("/api/chat")
 async def chat(payload: ChatRequest, request: Request) -> Dict[str, Any]:
     """Answer a chat message, and do anything it asked to be done.
@@ -159,6 +195,7 @@ async def chat(payload: ChatRequest, request: Request) -> Dict[str, Any]:
     # of it.
     result["response"] = envelope["prose"]
     result["actions"] = _wire(envelope)
+    remember_turn(request, message, str(envelope["prose"]))
     return result
 
 
@@ -257,6 +294,11 @@ async def websocket_chat(websocket: WebSocket) -> None:
 
             runner = ChatActionRunner(websocket.app.state)
             envelope = await runner.run_reply(collected)
+            # Remembered before the branch below, because that branch ``continue``s
+            # and this is the surface the UI actually uses: remembering only on the
+            # turns that carried an action would mean an ordinary conversation left
+            # nothing behind at all.
+            remember_turn(websocket, message, str(envelope["prose"]))
             if not envelope["has_actions"] and not envelope["warnings"]:
                 # A conversational reply: no event, so the client has nothing to
                 # render. Emitting an empty one would push a badge-less event

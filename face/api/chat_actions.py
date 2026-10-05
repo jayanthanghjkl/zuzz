@@ -276,13 +276,28 @@ class ChatActionRunner:
             files=self.state.file_manager,
             directories=self.state.directory_manager,
             hypothalamus=self.state.hypothalamus,
-            # The vision and browser tools reach the Occipital Lobe and the Legs
-            # layer through here. Without them the two families are registered but
-            # unreachable: the model is told about a capability, calls it, and is
-            # refused with "not attached" — which is how a capable agent starts
-            # claiming it saw a screen it never captured.
-            occipital_lobe=getattr(self.state, "occipital_lobe", None),
+            # The vision, browser and system-awareness tools reach the Occipital
+            # Lobe, the Legs layer and the Parietal Lobe through here. Without them
+            # those families are registered but unreachable: the model is told about
+            # a capability, calls it, and is refused with "not attached" — which is
+            # how a capable agent starts claiming it saw a screen it never captured.
+occipital_lobe=getattr(self.state, "occipital_lobe", None),
             browser=getattr(self.state, "legs", None),
+            # The three Phase 6 regions, reached the same way. Without them the
+            # memory, routine and personality tools are registered but
+            # unreachable: the model is told ZUZZ can remember, calls it, and is
+            # refused with "not attached" — which is how an agent starts claiming
+            # it remembers things it never stored. Deliberately read with getattr
+            # and a None default so an app built without them still serves.
+            parietal_lobe=getattr(self.state, "parietal_lobe", None),
+            hippocampus=getattr(self.state, "hippocampus", None),
+            basal_ganglia=getattr(self.state, "basal_ganglia", None),
+            cerebellum=getattr(self.state, "cerebellum", None),
+            # The coding engine, reached the same way. Without it the ten kilo_*
+            # tools are registered but unreachable: the model is told ZUZZ can
+            # generate code, calls it, and is refused with "not attached" — which is
+            # how an agent starts claiming it wrote a file it never wrote.
+            kilo=getattr(self.state, "kilo", None),
         )
 
     # -----------------------------------------------------------------

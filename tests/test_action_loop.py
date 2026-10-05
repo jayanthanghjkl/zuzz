@@ -682,10 +682,39 @@ BROWSER_TOOL_NAMES = (
     "browser_get_session_status",
 )
 
-NEW_TOOL_NAMES = VISION_TOOL_NAMES + BROWSER_TOOL_NAMES
+PARIETAL_TOOL_NAMES = (
+    "parietal_get_active_window",
+    "parietal_get_screen_info",
+    "parietal_get_running_apps",
+    "parietal_get_mouse_position",
+    "parietal_detect_context",
+    "parietal_get_snapshot",
+)
+
+#: The ten coding tools added with ``body/mouth/kilo``. In the same tuple as the
+#: others so the "a deletion fails loudly" property covers them: dropping
+#: ``kilo_rollback`` from the schema would otherwise leave 63 tools, still callable,
+#: still resolvable — and a model told it could undo a change set with nothing behind
+#: the promise.
+KILO_TOOL_NAMES = (
+    "kilo_generate_code",
+    "kilo_review_code",
+    "kilo_debug_error",
+    "kilo_refactor_code",
+    "kilo_run_tests",
+    "kilo_preview_diff",
+    "kilo_apply_changes",
+    "kilo_rollback",
+    "kilo_git_status",
+    "kilo_install_package",
+)
+
+NEW_TOOL_NAMES = (
+    VISION_TOOL_NAMES + BROWSER_TOOL_NAMES + PARIETAL_TOOL_NAMES + KILO_TOOL_NAMES
+)
 
 
-def test_all_35_tools_registered_and_callable() -> None:
+def test_all_64_tools_registered_and_callable() -> None:
     """Every tool the model is told about exists, and every one resolves and runs.
 
     Checked as a unit test with recording doubles rather than through the API,
@@ -694,22 +723,28 @@ def test_all_35_tools_registered_and_callable() -> None:
     cannot reach, and an implementation with no schema is a capability no model
     can ask for. Either one is a bug that no single route test would surface.
 
-    Thirty-five rather than fifteen since Session 13: five vision tools and
-    fifteen browser tools, which together are what makes ZUZZ multi-modal
-    rather than a chat that can move a mouse.
+    Sixty-four rather than fifteen since Session 13: five vision tools, fifteen
+    browser tools, six system-awareness tools, five memory, five routine and three
+    personality tools from Phase 6, and ten ``kilo_*`` coding tools. Session 13
+    established that a count is not the claim being made — the twenty it added were
+    registered and unreachable — so the reachability half of this test is the part
+    that matters, and the count is only here to make a deletion fail loudly.
     """
     from brain.cerebrum.tool_catalogue import TOOL_NAMES
     from body.tools import ToolContext, catalogue_mismatches
 
-    assert len(TOOL_NAMES) == 35, TOOL_NAMES
+    assert len(TOOL_NAMES) == 64, TOOL_NAMES
     assert catalogue_mismatches() == []
 
-    # The twenty new tools are present *by name*. A count would pass on a typo,
-    # and a typo is exactly the failure mode this catalogue keeps hitting: a
-    # schema entry the registry cannot resolve is a hand the model was promised
-    # and never got.
-    assert len(NEW_TOOL_NAMES) == 20, NEW_TOOL_NAMES
-    for name in ("vision_capture_screen", "browser_navigate", "browser_search_web"):
+    # The thirty-six tools added since Session 12 are present *by name*. A count
+    # would pass on a typo, and a typo is exactly the failure mode this catalogue
+    # keeps hitting: a schema entry the registry cannot resolve is a hand the model
+    # was promised and never got.
+    assert len(NEW_TOOL_NAMES) == 36, NEW_TOOL_NAMES
+    for name in (
+        "vision_capture_screen", "browser_navigate", "parietal_detect_context",
+        "kilo_generate_code", "kilo_apply_changes",
+    ):
         assert name in TOOL_NAMES, f"{name} missing from the catalogue"
     for name in NEW_TOOL_NAMES:
         assert name in TOOL_NAMES, f"{name} missing from the catalogue"
@@ -725,11 +760,15 @@ def test_all_35_tools_registered_and_callable() -> None:
         # and the check would pass for the wrong reason.
         occipital_lobe=getattr(app.state, "occipital_lobe", None),
         browser=getattr(app.state, "legs", None),
+        parietal_lobe=getattr(app.state, "parietal_lobe", None),
+        hippocampus=getattr(app.state, "hippocampus", None),
+        basal_ganglia=getattr(app.state, "basal_ganglia", None),
+        cerebellum=getattr(app.state, "cerebellum", None),
     )
 
     # Every tool resolves to a real category and a target, with a summary the UI
     # can show. Resolution is where "there is no such thing to act on" is caught,
-    # so running it for all thirty-five is the test.
+    # so running it for all sixty-four is the test.
     for name in TOOL_NAMES:
         spec = runner.registry.get(name)
         assert spec is not None, name
@@ -775,6 +814,39 @@ def test_all_35_tools_registered_and_callable() -> None:
         "browser_scroll": {"amount": 120},
         "browser_get_session_status": {},
         "get_system_resources": {},
+        "parietal_get_active_window": {},
+        "parietal_get_screen_info": {"monitor": 0},
+        "parietal_get_running_apps": {},
+        "parietal_get_mouse_position": {},
+        "parietal_detect_context": {},
+        "parietal_get_snapshot": {},
+        "memory_recall_similar": {"query": "what did we decide about the parser"},
+        "memory_remember_fact": {"fact": "the trust matrix lives in config/trust_levels.json"},
+        "memory_remember_preference": {"key": "reply_style", "value": "short"},
+        "memory_search_history": {"query": "parser"},
+        "memory_get_user_profile": {},
+        "routine_list_all": {},
+        "routine_execute": {"name": "does-not-exist"},
+        "routine_create": {
+            "name": "morning-scan",
+            "steps": [{"tool": "get_system_resources"}],
+            "trigger": "time",
+        },
+        "routine_update": {"name": "does-not-exist", "enabled": "true"},
+        "routine_delete": {"name": "does-not-exist"},
+        "personality_get_settings": {},
+        "personality_update_setting": {"key": "verbosity", "value": "terse"},
+        "personality_detect_mood": {"message": "this is taking far too long"},
+        "kilo_generate_code": {"description": "add a docstring to the parser"},
+        "kilo_review_code": {"path": "brain/hippocampus/semantic_search.py"},
+        "kilo_debug_error": {"error": "KeyError: 'confirmation_id'"},
+        "kilo_refactor_code": {"path": "core/audit.py", "goal": "shorten the module"},
+        "kilo_run_tests": {"path": "tests"},
+        "kilo_preview_diff": {},
+        "kilo_apply_changes": {"diff_id": "no-such-diff", "approval": "CONFIRM"},
+        "kilo_rollback": {"diff_id": "no-such-diff"},
+        "kilo_git_status": {},
+        "kilo_install_package": {"name": "a-package-that-does-not-exist"},
     }
     assert set(samples) == set(TOOL_NAMES)
 

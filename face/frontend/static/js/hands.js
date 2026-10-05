@@ -230,6 +230,73 @@
     return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  // -- system awareness ------------------------------------------------
+
+  /* The Current Context panel is the Parietal Lobe's answer, not this page's
+     guess. One snapshot call rather than five reads: the server builds the whole
+     record server-side, and each slot carries its own failure marker, so a missing
+     psutil shows up as "unavailable" on one cell instead of emptying the panel. */
+
+  function failed(slot) {
+    return !slot || slot.failed === true;
+  }
+
+  function cell(id, value, fallback) {
+    const node = $(id);
+    if (!node) return;
+    node.textContent = value === undefined || value === null ? fallback : value;
+  }
+
+  async function refreshContext() {
+    const result = await get("/api/parietal/snapshot");
+    if (result.status === 200) {
+      const snapshot = (result.data && result.data.result) || {};
+
+      const windowSlot = snapshot.active_window || {};
+      if (failed(windowSlot)) {
+        cell("ctx-window", "unavailable", "—");
+        cell("ctx-reason", windowSlot.error || "the window read failed", "");
+      } else if (!windowSlot.window) {
+        cell("ctx-window", "nothing has focus", "—");
+        cell("ctx-reason", windowSlot.reason || "", "");
+      } else {
+        cell("ctx-window", windowSlot.summary || windowSlot.title || "—", "—");
+        cell("ctx-reason", "", "");
+      }
+
+      const context = snapshot.context || {};
+      cell("ctx-kind", failed(context) ? "unavailable" : context.context || "unknown", "—");
+      if (context.confidence !== undefined && context.confidence !== null) {
+        cell("ctx-confidence", Math.round(context.confidence * 100) + "% confidence", "");
+      }
+
+      const apps = snapshot.running_apps || {};
+      cell(
+        "ctx-apps",
+        failed(apps) ? "unavailable" : (apps.count !== undefined ? apps.count + " running" : "—"),
+        "—"
+      );
+
+      const screen = snapshot.screen_info || {};
+      cell(
+        "ctx-monitors",
+        failed(screen)
+          ? "unavailable"
+          : screen.monitor_count + (screen.monitor_count === 1 ? " monitor" : " monitors"),
+        "—"
+      );
+      return;
+    }
+    /* 503 means no Parietal Lobe is wired at all, 409 means the stop is engaged.
+       Both are reported as unavailable rather than left showing the last good
+       reading, because a stale window title on screen is worse than no reading. */
+    cell("ctx-window", "unavailable", "—");
+    cell("ctx-kind", "unavailable", "—");
+    cell("ctx-apps", "unavailable", "—");
+    cell("ctx-monitors", "unavailable", "—");
+    cell("ctx-reason", explain(result) || "", "");
+  }
+
   // -- refresh -------------------------------------------------------
 
   async function refresh() {
@@ -248,6 +315,7 @@
     }
     const policy = await get("/api/hands/policy");
     if (policy.status === 200) fillPolicy(policy.data.policy);
+    await refreshContext();
   }
 
   async function refreshPosition() {
@@ -296,6 +364,8 @@
     $("screen").addEventListener("click", pickPoint);
 
     on("pos-refresh", refreshPosition);
+
+    on("ctx-refresh", refreshContext);
 
     on("op-move", function () {
       run("/api/hands/move", { x: state.point.x, y: state.point.y });

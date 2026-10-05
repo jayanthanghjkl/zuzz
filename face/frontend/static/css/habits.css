@@ -1,0 +1,422 @@
+/* Habits page layout. Extends main.css, so the topbar, badges and toast
+   keep the styling the rest of the app agrees on.
+
+   The plan table is the centre of this page, and its three verdicts are
+   three visibly different things. A routine that is partly permitted,
+   partly pending and partly refused should not look like one grey list —
+   "blocked" here means something is genuinely not going to happen, and it
+   is the one state worth interrupting the user over. */
+
+.habits-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 14px;
+  padding: 14px;
+  align-items: start;
+}
+
+.habits-panel {
+  background: var(--panel, #171a21);
+  border: 1px solid var(--line, #262b36);
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 0;
+}
+
+.habits-panel + .habits-panel {
+  margin-top: 14px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.panel-title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.muted {
+  color: var(--muted, #8b93a7);
+  font-size: 12px;
+}
+
+.prose {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted, #8b93a7);
+  margin: 0 0 12px;
+}
+
+.prose em {
+  color: var(--text, #e6edf3);
+  font-style: normal;
+}
+
+/* -- routine list --------------------------------------------------- */
+
+.routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.routine {
+  border: 1px solid var(--line, #262b36);
+  border-radius: 8px;
+  padding: 10px;
+  background: #10131a;
+}
+
+.routine.armed {
+  border-color: #1f6f2f;
+}
+
+.routine.disarmed {
+  border-color: #6b5417;
+  background: #1a1608;
+}
+
+.routine-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.routine-name {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.routine-why {
+  font-size: 12px;
+  color: var(--muted, #8b93a7);
+  margin: 3px 0 0;
+  line-height: 1.45;
+}
+
+.routine-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #262b36);
+  background: #10131a;
+  color: var(--muted, #8b93a7);
+}
+
+.pill.armed {
+  border-color: #1f6f2f;
+  color: #b7e5c2;
+}
+
+.pill.disarmed {
+  border-color: #6b5417;
+  color: #f0d69a;
+}
+
+.pill.due {
+  border-color: var(--accent, #4f9cf9);
+  color: #a9cdfd;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.step-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--muted, #8b93a7);
+  line-height: 1.6;
+}
+
+.step-list code {
+  font-size: 11px;
+  color: var(--text, #e6edf3);
+  background: #171a21;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* -- the plan ------------------------------------------------------- */
+
+.plan {
+  border: 1px solid var(--line, #262b36);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.plan-head {
+  padding: 10px 11px;
+  border-bottom: 1px solid var(--line, #262b36);
+  background: #10131a;
+}
+
+.plan-verdict {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.plan-verdict.runnable {
+  color: var(--ok, #3fb950);
+}
+
+.plan-verdict.pending {
+  color: var(--warn, #d29922);
+}
+
+.plan-verdict.refused {
+  color: var(--err, #f85149);
+}
+
+.plan-sub {
+  font-size: 12px;
+  color: var(--muted, #8b93a7);
+  margin: 4px 0 0;
+  line-height: 1.45;
+}
+
+.plan-steps {
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--line, #262b36);
+}
+
+.plan-step:last-child {
+  border-bottom: none;
+}
+
+.step-num {
+  font-size: 11px;
+  color: var(--muted, #8b93a7);
+  font-variant-numeric: tabular-nums;
+  min-width: 20px;
+  padding-top: 1px;
+}
+
+.step-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.step-tool {
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+.step-why {
+  font-size: 11px;
+  color: var(--muted, #8b93a7);
+  margin-top: 2px;
+  line-height: 1.45;
+}
+
+.step-verdict {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #262b36);
+  white-space: nowrap;
+}
+
+.step-verdict.auto {
+  border-color: #1f6f2f;
+  color: #b7e5c2;
+}
+
+.step-verdict.ask {
+  border-color: #6b5417;
+  color: #f0d69a;
+}
+
+.step-verdict.blocked {
+  border-color: #6b2725;
+  background: #24100f;
+  color: #f0b8b4;
+}
+
+.step-confirm {
+  border: none;
+}
+
+/* Checkbox styling kept in step with the rest of the app rather than the
+   browser default, so a confirmed step reads as part of this table. */
+.step-confirm input {
+  accent-color: var(--accent, #4f9cf9);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+/* -- patterns ------------------------------------------------------- */
+
+.pattern-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.pattern {
+  border: 1px solid var(--line, #262b36);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #10131a;
+}
+
+.pattern-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pattern-seq {
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+.pattern-why {
+  font-size: 11px;
+  color: var(--muted, #8b93a7);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+
+/* -- new routine form ---------------------------------------------- */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.form-grid label,
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted, #8b93a7);
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea,
+.field input,
+.field select,
+.field textarea {
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--line, #262b36);
+  background: #10131a;
+  color: inherit;
+  font: inherit;
+}
+
+.form-grid textarea,
+.field textarea {
+  resize: vertical;
+  min-height: 64px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.field-note {
+  font-size: 11px;
+  color: var(--muted, #8b93a7);
+  margin: 6px 0 0;
+  line-height: 1.45;
+}
+
+@media (max-width: 1000px) {
+  .habits-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* -- shared chrome -------------------------------------------------
+
+   Defined in files.css today, which this page does not load. Repeated
+   here rather than imported, for the reason the Memory page gives: a
+   missing toast style only shows up at the moment a refusal arrives. */
+
+.toast {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel, #14141f);
+  border: 1px solid var(--border, #2a2a3a);
+  border-radius: 8px;
+  padding: 8px 14px;
+  z-index: 60;
+  font-size: 13px;
+  max-width: 70vw;
+}
+
+.toast.ok {
+  border-color: var(--ok, #3fb950);
+  color: var(--ok, #3fb950);
+}
+
+.toast.warn,
+.toast.warn-only {
+  border-color: var(--warn, #d29922);
+  color: var(--warn, #d29922);
+}
+
+.toast.bad,
+.toast.error {
+  border-color: var(--err, #f85149);
+  color: var(--err, #f85149);
+}
+
+.tab-link {
+  text-decoration: none;
+}
+
+/* Delete is the only irreversible control on this page, and a routine
+   deletes without any chance to preview it — so the button is red rather
+   than a neutral ghost. The typed-name prompt is the real guard. */
+.danger {
+  border-color: var(--err, #f85149);
+  color: #ffb4b0;
+}
+
+.danger:hover {
+  border-color: var(--err, #f85149);
+  background: #3a1817;
+  color: #ffd7d4;
+}

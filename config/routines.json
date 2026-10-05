@@ -1,0 +1,157 @@
+{
+  "note": [
+    "Routines ZUZZ can run. Config rather than storage on purpose: this",
+    "file is the operator's, written and read by people.",
+    "",
+    "Each routine names EXISTING tools. A routine is executed through the",
+    "same resolve -> gate -> execute pipeline as a tool call the model",
+    "asked for, and there is no second path into the Body.",
+    "",
+    "A routine stores no permission. Every step is re-resolved and",
+    "re-decided against config/trust_levels.json at the moment the routine",
+    "runs, so one created at trust level 5 and run at level 1 does only",
+    "what level 1 permits. See the routine_note in trust_levels.json.",
+    "",
+    "'enabled' is honoured but 'trigger' is advisory: nothing in the shipped",
+    "scheduler fires a routine on a trigger yet. A routine can be run by",
+    "name, from the Habits page, or by the routine_execute tool."
+  ],
+  "routines": [
+    {
+      "name": "start_work",
+      "description": "Open the editor, the browser and the work tracker.",
+      "trigger": {
+        "kind": "manual",
+        "at": "",
+        "days": [],
+        "app": "",
+        "command": "",
+        "match_all_words": false,
+        "window_minutes": 15,
+        "enabled": true,
+        "description": "runs only when asked"
+      },
+      "steps": [
+        {
+          "tool": "open_app",
+          "params": {
+            "app_name": "vscode"
+          },
+          "category": "",
+          "target": "",
+          "why": "the editor"
+        },
+        {
+          "tool": "open_app",
+          "params": {
+            "app_name": "chrome"
+          },
+          "category": "",
+          "target": "",
+          "why": "the browser"
+        },
+        {
+          "tool": "browser_navigate",
+          "params": {
+            "url": "https://github.com"
+          },
+          "category": "",
+          "target": "",
+          "why": "the work"
+        }
+      ],
+      "step_count": 3,
+      "enabled": false,
+      "source": "seed",
+      "evidence": {},
+      "created": 1791207833.5480888,
+      "updated": 1791207833.5480895,
+      "times_run": 0,
+      "last_run": 0.0
+    },
+    {
+      "name": "end_day",
+      "description": "Close the browser and the applications left open.",
+      "trigger": {
+        "kind": "manual",
+        "at": "",
+        "days": [],
+        "app": "",
+        "command": "",
+        "match_all_words": false,
+        "window_minutes": 15,
+        "enabled": true,
+        "description": "runs only when asked"
+      },
+      "steps": [
+        {
+          "tool": "browser_close",
+          "params": {},
+          "category": "",
+          "target": "",
+          "why": "the browser away first"
+        },
+        {
+          "tool": "close_app",
+          "params": {
+            "process_name": "chrome"
+          },
+          "category": "",
+          "target": "",
+          "why": "then the app"
+        }
+      ],
+      "step_count": 2,
+      "enabled": false,
+      "source": "seed",
+      "evidence": {},
+      "created": 1791207833.5481088,
+      "updated": 1791207833.548109,
+      "times_run": 0,
+      "last_run": 0.0
+    },
+    {
+      "name": "focus_mode",
+      "description": "Close the obvious distraction and get back to the editor.",
+      "trigger": {
+        "kind": "manual",
+        "at": "",
+        "days": [],
+        "app": "",
+        "command": "",
+        "match_all_words": false,
+        "window_minutes": 15,
+        "enabled": true,
+        "description": "runs only when asked"
+      },
+      "steps": [
+        {
+          "tool": "close_app",
+          "params": {
+            "process_name": "chrome"
+          },
+          "category": "",
+          "target": "",
+          "why": "browser away"
+        },
+        {
+          "tool": "open_app",
+          "params": {
+            "app_name": "vscode"
+          },
+          "category": "",
+          "target": "",
+          "why": "editor back"
+        }
+      ],
+      "step_count": 2,
+      "enabled": false,
+      "source": "seed",
+      "evidence": {},
+      "created": 1791207833.54812,
+      "updated": 1791207833.5481203,
+      "times_run": 0,
+      "last_run": 0.0
+    }
+  ]
+}

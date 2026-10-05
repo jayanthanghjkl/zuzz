@@ -34,11 +34,26 @@ def user32() -> Any:
 
 
 def rect_type() -> Any:
-    """Return a fresh ``RECT`` ctypes structure.
+    """Return the ``RECT`` ctypes structure *type*.
 
     Built on demand rather than at import time, because ctypes is only imported
     on Windows and a module-level structure would make this file unimportable
     elsewhere.
+
+    Returns:
+        The type, so a caller writes ``rect_type()()``. It used to return an
+        instance instead, which is the shape neither of its two callers wanted:
+        :func:`list_windows` assigned the result and called it (``rect_class()``)
+        while :func:`body.hands.window_ops.is_fully_visible` called it twice
+        (``rect_type()()``). Under the old contract the first raised
+        ``TypeError: 'RECT' object is not callable`` and the second still could
+        not work, so both were broken — and both were broken *silently*, because
+        each sat inside a bare ``except Exception``. ``list_windows`` therefore
+        reported no windows on every Windows machine, and
+        ``is_fully_visible`` reported False for every window, which made
+        click-by-title resolution fail with "no window matches" for a reason that
+        had nothing to do with titles. Returning the type matches the function's
+        name and satisfies both call sites unchanged.
     """
     import ctypes
 
@@ -50,7 +65,7 @@ def rect_type() -> Any:
             ("bottom", ctypes.c_long),
         ]
 
-    return RECT()
+    return RECT
 
 
 def process_name(pid: int) -> str:
@@ -87,6 +102,13 @@ def list_windows() -> List[Dict[str, Any]]:
     rect_class = rect_type()
 
     def collect(hwnd: int, _lparam: int) -> bool:
+        # Narrow on purpose. A ``TypeError`` or ``AttributeError`` here is *our* bug,
+        # not the OS declining to answer, and swallowing it turns a defect into a
+        # plausible empty answer: the ``rect_type`` instance-vs-type mistake below sat
+        # inside a bare ``except Exception`` and made every window on the machine
+        # invisible without a trace. Only the errors Windows actually raises for a
+        # handle it does not like are caught here; a programming error propagates and
+        # fails loudly at import-of-behaviour instead.
         try:
             if not api.IsWindowVisible(hwnd):
                 return True
@@ -100,7 +122,7 @@ def list_windows() -> List[Dict[str, Any]]:
             api.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
             rect = rect_class()
             api.GetWindowRect(hwnd, ctypes.byref(rect))
-        except Exception:
+        except (OSError, ValueError, ctypes.ArgumentError):
             return True
         found.append(
             {
@@ -122,7 +144,7 @@ def list_windows() -> List[Dict[str, Any]]:
     callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_long)
     try:
         api.EnumWindows(callback_type(collect), 0)
-    except Exception:
+    except (OSError, ValueError):
         return found
     return found
 

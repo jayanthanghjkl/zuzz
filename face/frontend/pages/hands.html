@@ -34,6 +34,38 @@
   </div>
 
   <main class="hands-layout">
+    <section class="hands-panel" aria-label="Current context">
+      <div class="panel-head">
+        <span class="panel-title">Current Context</span>
+        <span id="ctx-confidence" class="muted"></span>
+      </div>
+      <div class="ctx-grid">
+        <div class="ctx-cell">
+          <span class="ctx-label">Working in</span>
+          <strong id="ctx-window">—</strong>
+          <span id="ctx-reason" class="ctx-reason"></span>
+        </div>
+        <div class="ctx-cell">
+          <span class="ctx-label">Context</span>
+          <strong id="ctx-kind">—</strong>
+        </div>
+        <div class="ctx-cell">
+          <span class="ctx-label">Running apps</span>
+          <strong id="ctx-apps">—</strong>
+        </div>
+        <div class="ctx-cell">
+          <span class="ctx-label">Monitors</span>
+          <strong id="ctx-monitors">—</strong>
+        </div>
+      </div>
+      <div class="ctx-note">
+        The context is an <em>inference</em> from the focused window's title and the
+        OS input-idle timer, not a reading of your mind. "unknown" means no rule
+        matched — it does not mean you are idle.
+        <button id="ctx-refresh" class="ghost-btn" type="button">Refresh</button>
+      </div>
+    </section>
+
     <section class="hands-panel" aria-label="Screen">
       <div class="panel-head">
         <span class="panel-title">Screen</span>

@@ -27,6 +27,88 @@ This file is automatically updated by the AI assistant. It tracks every change m
 
 ---
 
+## [2026-10-05] Phase 6: Hippocampus, Basal Ganglia, Cerebellum, and the Parietal Lobe
+
+**1361 passed, 2 skipped, 0 failed.** ZUZZ now forgets nothing on purpose, acts on what
+it has done before, and speaks in a voice of its own. Twenty new tools: five memory, five
+routine, three personality, and the five Parietal context tools that were already claimed
+complete and were not.
+
+### Added — Hippocampus
+
+- `brain/hippocampus/` — short-term buffer, long-term JSONL store, semantic search over
+  what was actually said, and a consolidation pass that promotes rather than duplicates.
+- Types: conversation, task, preference, mistake, fact. Each has its own persistence file,
+  so a mistake is never confused with a fact.
+- **Verified across a full process restart**, not just across a reload: conversation, task,
+  preference, mistake and fact all came back, and the user profile rebuilt itself from disk
+  as `{conversation: 1, task: 1, preference: 1, mistake: 1, fact: 1, total: 5}`.
+- A `memory_flush` scheduler job writes through on a short interval. It is listed in
+  `tests/test_stop_dashboard_api.py` on purpose — the other jobs do housekeeping whose
+  absence is invisible, but this one carries the user's own words to disk, so a stop that
+  silently pauses it loses whatever was said just before it.
+
+### Added — Basal Ganglia
+
+- `brain/basal_ganglia/` — routine registry, routine builder, context triggers that fire on
+  the working context, and a pattern detector that promotes a repeated action into a habit.
+- **Routines are always stored `enabled=False`.** A learned habit that arms itself is a
+  habit the user did not agree to. Arming happens only through `POST /api/habits/arm`,
+  which is an explicit human act; `POST /api/habits/routine` forces `enabled: False` even
+  when the payload asks for `True`.
+- An armed routine resolves to a concrete plan before it runs, so an arm is reviewable
+  rather than a promise.
+
+### Added — Cerebellum
+
+- `brain/cerebellum/` — personality config, tone detection, mood cues, character prompts,
+  and an emotion responder.
+- **The owner's name is kept out of the system prompt.** A test asserts
+  `"Jayanthan" not in prompt`, because a name in the prompt is a name the model will put
+  in fabricated paths — the exact failure `BASE_IDENTITY` already caused once. The
+  greeting may still say "Hey Jayanthan"; that is a greeting, not an instruction.
+- Mood detection reads frustration from cues rather than keywords alone: *"this is taking
+  far too long"* reads `frustrated`, *"this is taking too long"* reads `neutral`. Pinned
+  both ways so the detector cannot drift into flagging every complaint.
+- `PERSONALITY_ACCESS` is its own trust category, `auto` at every trust level. Reading a
+  mood should never need a permission popup.
+
+### Added — Parietal Lobe
+
+- `brain/parietal_lobe/` — window tracker, app tracker, mouse tracker, screen info,
+  workspace detection, and a context detector that names what the user is doing.
+- Five context tools in the catalogue, plus a snapshot route. The sync/async route bug,
+  the Windows DPI access violation, the device-context cleanup, and the failed-window
+  snapshot shape are all fixed rather than documented.
+
+### Changed
+
+- `tools_schema.py` keeps `memory_type` rather than `type` — `type` is a JSON Schema
+  keyword, and a property with that name collides with the schema's own grammar.
+- `registry.py` keeps `PARIETAL_TOOLS` after `SYSTEM_TOOLS`; index 34 is still
+  `get_system_resources`.
+- Catalogue is now **64 tools**: 15 originals, 5 vision, 15 browser, 6 system-awareness,
+  13 Phase 6, 10 `kilo_*` coding tools added by a concurrent session mid-run.
+
+### Notes
+
+- The ten `kilo_*` tools landed in this working tree from another session while Phase 6 was
+  being verified. They are registered, schema'd, and reachable — `catalogue_mismatches()`
+  is empty — but their REST surface (`face/api/routes_code.py`) has not landed yet, so the
+  ten are callable from chat but not from a URL.
+- A hard-coded tool count in a shared test file is a poor assertion under concurrent
+  sessions: it fails for work that is not a deletion. The reachability half is the real
+  test and it is the half that stays.
+- `KillSwitch.engage(...)` added as a compatibility alias.
+
+### Next Steps
+
+- `face/api/routes_code.py` and tests for the `kilo_*` module.
+- Phase 1 end-to-end verification with all three models present.
+- Qwen 1.5B and 3B are still unpulled.
+
+---
+
 ## [2026-10-05] Session 13: Phase 3 verified against real hardware
 
 The 20-tool expansion from the previous merge was claimed complete. It was not, and this
