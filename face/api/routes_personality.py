@@ -66,7 +66,12 @@ async def read_settings(request: Request) -> Dict[str, Any]:
 
     Returns:
         The configuration, which keys may be changed, which values each accepts, and
-        the greeting and sign-off with the user's name filled in.
+        the greeting and sign-off with the user's name filled in. Also
+        ``invalid_fields`` and ``warnings``: any value in the file that is not in
+        its key's vocabulary, alongside the sentence explaining which default
+        replaced it. A setting the operator wrote and the page cannot honour is
+        reported here rather than quietly corrected, because a read that differs
+        from the file with no explanation is indistinguishable from a bug.
     """
     cerebellum = _cerebellum(request)
     voice = cerebellum.get_settings()

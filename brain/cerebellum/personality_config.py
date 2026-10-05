@@ -8,6 +8,15 @@ key — or a fresh checkout that has not been configured yet — must get a work
 voice rather than a ``KeyError`` in the middle of composing a reply. Every
 accessor below is therefore total.
 
+**A total accessor is not an excuse to be quiet.** A value outside a closed
+vocabulary — ``"verbosity": "low"``, say, where the field wants one of ``terse``,
+``concise`` or ``detailed`` — cannot reach a model as an instruction to interpret,
+so the default is used. Doing that *silently* is its own defect: the operator
+reads the page back, sees a value they did not write, and concludes the page is
+lying. Every rejection is therefore reported twice — once on the activity log,
+once as ``invalid_fields`` and ``warnings`` on the personality itself, which is
+what ``GET /api/personality/settings`` returns.
+
 **Only some keys are writable at runtime,** and the split is deliberate. The
 voice can change: style, humour, verbosity, greeting, signoff and quirks are the
 user tuning how ZUZZ sounds, and a tool call to do that is harmless. The identity
@@ -29,7 +38,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Set, Tuple
 
 from core.config import CONFIG_DIR, get_personality
 
@@ -196,6 +205,10 @@ class Personality:
             which is the right default for a reply rather than a first contact.
         signoff: A closing line. Empty means never sign off.
         quirks: Small habits, rendered into the prompt as instructions.
+        invalid_fields: Values the file stated that are not in that key's closed
+            vocabulary, mapped to what was actually written. Empty when the file is
+            valid; non-empty means the value in use is the default rather than the
+            one the operator asked for.
     """
 
     name: str = DEFAULTS["name"]
@@ -211,6 +224,22 @@ class Personality:
     signoff: str = DEFAULTS["signoff"]
     quirks: Tuple[str, ...] = tuple(DEFAULTS["quirks"])
     raw: Dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
+    invalid_fields: Dict[str, str] = field(
+        default_factory=dict, repr=False, compare=False
+    )
+
+    @property
+    def warnings(self) -> Tuple[str, ...]:
+        """Return one sentence per rejected field, for the log and for the API.
+
+        The same sentences the activity log records, so an operator watching the
+        log and a user reading ``GET /api/personality/settings`` are told the
+        identical thing rather than two versions of it.
+        """
+        return tuple(
+            _invalid_message(key, value)
+            for key, value in sorted(self.invalid_fields.items())
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the whole configuration as plain data, for the API."""
@@ -227,6 +256,8 @@ class Personality:
             "greeting": self.greeting,
             "signoff": self.signoff,
             "quirks": list(self.quirks),
+            "invalid_fields": dict(self.invalid_fields),
+            "warnings": list(self.warnings),
             "editable_keys": list(EDITABLE_KEYS),
             "allowed_values": {key: list(values) for key, values in ALLOWED_VALUES.items()},
         }
@@ -324,8 +355,79 @@ def _read(path: Optional[Path]) -> Dict[str, Any]:
     return read_raw(path)
 
 
+def _invalid_message(key: str, value: str) -> str:
+    """Return the sentence that reports one rejected value.
+
+    One place builds it, because the sentence is the contract: it goes in the
+    activity log and comes back from the API, and a user comparing the two should
+    not be left wondering whether they describe the same problem.
+
+    Args:
+        key: The setting that was rejected.
+        value: What the file actually said.
+
+    Returns:
+        A sentence naming the field, the value, the legal values and what is being
+        used instead.
+    """
+    return (
+        f"personality.{key}={value!r} is not one of "
+        f"{', '.join(ALLOWED_VALUES[key])}; falling back to {DEFAULTS[key]!r}"
+    )
+
+
+#: Problems already reported this process. :func:`load` runs on every prompt build,
+#: and the activity log is also what the Basal Ganglia reads for habits, so a
+#: warning written on every read would fill the file with one identical line and
+#: bury the patterns the log exists to find.
+_REPORTED: Set[Tuple[str, str, str]] = set()
+
+
+def _report_invalid(path: Optional[Path], problems: Mapping[str, str]) -> None:
+    """Warn about every value that was rejected, once per distinct problem.
+
+    A log line rather than an exception. A config the operator hand-edited into an
+    invalid state must still produce a working voice — ``load`` is on the path of
+    every reply — but it must not do so quietly: a user who cannot see that their
+    setting was dropped has no way to fix it and concludes the page is lying.
+
+    Args:
+        path: The file the values came from, part of the de-duplication key so two
+            profiles with the same mistake are both reported.
+        problems: Each rejected field and the value it held.
+    """
+    if not problems:
+        return
+    # Imported here rather than at module scope so that importing the
+    # Cerebellum does not open the log file, and so the isolated logger the tests
+    # install is the one that gets used.
+    from brain.brainstem.activity_logger import get_logger
+
+    logger = get_logger()
+    where = str(PERSONALITY_FILE if path is None else path)
+    for key, value in sorted(problems.items()):
+        signature = (where, key, value)
+        if signature in _REPORTED:
+            continue
+        _REPORTED.add(signature)
+        logger.log(
+            "cerebellum",
+            "config_invalid",
+            field=key,
+            given=value,
+            used=str(DEFAULTS[key]),
+            allowed=list(ALLOWED_VALUES[key]),
+            message=_invalid_message(key, value),
+        )
+
+
 def load(path: Optional[Path] = None) -> Personality:
     """Return the configured personality, with defaults filled in.
+
+    A value outside a closed vocabulary falls back to the default **and is
+    reported**: on the activity log, and as ``invalid_fields`` and ``warnings`` on
+    the personality the caller receives. Blank is not reported, because blank
+    means "use the default" and is documented to do so.
 
     Args:
         path: The file to read. Defaults to ``config/personality.json``.
@@ -335,6 +437,7 @@ def load(path: Optional[Path] = None) -> Personality:
         file — a user who has not configured a voice still gets one.
     """
     data = _read(path)
+    problems: Dict[str, str] = {}
 
     def text(key: str) -> str:
         value = str(data.get(key, "") or "").strip()
@@ -353,9 +456,16 @@ def load(path: Optional[Path] = None) -> Personality:
         return tuple(items) if items else tuple(DEFAULTS[key])
 
     def enumerated(key: str) -> str:
-        value = str(data.get(key, "") or "").strip().lower()
-        allowed = ALLOWED_VALUES[key]
-        return value if value in allowed else str(DEFAULTS[key])
+        raw = str(data.get(key, "") or "").strip()
+        value = raw.lower()
+        if value in ALLOWED_VALUES[key]:
+            return value
+        # The value cannot reach a model as an instruction to interpret, so the
+        # default is the safe answer — but recording what was rejected is what
+        # turns "your config was ignored" into something the operator can act on.
+        if raw:
+            problems[key] = raw
+        return str(DEFAULTS[key])
 
     try:
         sentences = int(data.get("max_sentences_per_reply", DEFAULTS["max_sentences_per_reply"]))
@@ -363,7 +473,9 @@ def load(path: Optional[Path] = None) -> Personality:
         sentences = int(DEFAULTS["max_sentences_per_reply"])
     sentences = max(1, min(50, sentences))
 
-    return Personality(
+    # Built first, then reported: ``enumerated`` is what fills ``problems``, so
+    # reporting above the constructor would log an empty problem set every time.
+    voice = Personality(
         name=text("name"),
         user_name=str(data.get("user_name", "") or "").strip(),
         owner=str(data.get("owner", "") or "").strip(),
@@ -377,7 +489,10 @@ def load(path: Optional[Path] = None) -> Personality:
         signoff=str(data.get("signoff", "") or "").strip(),
         quirks=listed("quirks"),
         raw=data,
+        invalid_fields=problems,
     )
+    _report_invalid(path, problems)
+    return voice
 
 
 def _validate(key: str, value: Any) -> Any:

@@ -58,6 +58,7 @@ from brain.cerebellum import (
     get_signoff,
     load,
 )
+from brain.cerebellum.personality_config import DEFAULTS
 
 BASE_PROMPT = "You are ZUZZ, a desktop assistant."
 
@@ -614,6 +615,115 @@ def test_the_shipped_config_loads(tmp_path: Path) -> None:
     assert voice.style in ALLOWED_VALUES["style"]
     assert voice.humor_level in ALLOWED_VALUES["humor_level"]
     assert voice.verbosity in ALLOWED_VALUES["verbosity"]
+
+
+# -- a rejected value is used *and* reported ----------------------------
+
+
+def test_invalid_verbosity_logs_warning_but_falls_back(config_path: Path) -> None:
+    """A word outside the vocabulary must not take the voice down, or vanish.
+
+    ``load`` runs on every reply, so refusing here would mean one bad value in a
+    hand-edited file stops ZUZZ answering at all. Falling back quietly is the
+    other failure and the more likely one to survive review: the operator sets
+    ``low``, reads back ``concise``, and concludes the Settings page is lying.
+
+    So the default is used *and* the rejection is written to the activity log and
+    carried on the personality itself.
+    """
+    config_path.write_text(
+        json.dumps(dict(CONFIG, verbosity="low")), encoding="utf-8"
+    )
+
+    voice = load(config_path)
+
+    assert voice.verbosity == "concise", "an unusable value falls back to the default"
+    assert voice.invalid_fields == {"verbosity": "low"}
+    assert len(voice.warnings) == 1
+    assert "low" in voice.warnings[0] and "concise" in voice.warnings[0]
+
+    from brain.brainstem.activity_logger import get_logger
+
+    warned = [
+        record for record in get_logger().tail(50) if record.get("action") == "config_invalid"
+    ]
+    assert warned, "a silent fallback is exactly what this test exists to prevent"
+    assert warned[-1]["field"] == "verbosity"
+    assert warned[-1]["given"] == "low"
+    assert warned[-1]["used"] == "concise"
+    assert list(ALLOWED_VALUES["verbosity"]) == warned[-1]["allowed"]
+
+
+def test_a_rejected_value_is_reported_once_per_read_of_the_same_file(
+    config_path: Path,
+) -> None:
+    """The prompt is rebuilt per reply, so the warning must not be per reply.
+
+    The activity log is also the input to Basal Ganglia pattern detection. A
+    config that is wrong on every read would otherwise contribute thousands of
+    identical lines to the tail it reads and drown out the habits it is looking
+    for.
+    """
+    config_path.write_text(
+        json.dumps(dict(CONFIG, verbosity="low")), encoding="utf-8"
+    )
+    from brain.brainstem.activity_logger import get_logger
+
+    for _ in range(5):
+        assert load(config_path).verbosity == "concise"
+
+    warned = [
+        record for record in get_logger().tail(200) if record.get("action") == "config_invalid"
+    ]
+    assert len(warned) == 1, f"five reads of one bad file wrote {len(warned)} warnings"
+
+
+def test_a_blank_value_is_a_default_not_a_rejection(config_path: Path) -> None:
+    """Blank means "use the default" and is documented to.
+
+    Reporting it would put a warning on every operator who clears a field to turn
+    it off, which is a normal way to edit the file — and a warning that fires on
+    correct use trains people to ignore warnings.
+    """
+    config_path.write_text(json.dumps(dict(CONFIG, verbosity="")), encoding="utf-8")
+
+    voice = load(config_path)
+
+    assert voice.verbosity == "concise"
+    assert voice.invalid_fields == {}
+    assert voice.warnings == ()
+
+
+def test_a_valid_file_reports_nothing(config_path: Path) -> None:
+    """The ordinary case must stay quiet, or the warning means nothing."""
+    voice = load(config_path)
+
+    assert voice.invalid_fields == {}
+    assert voice.warnings == ()
+
+    from brain.brainstem.activity_logger import get_logger
+
+    assert not [
+        record for record in get_logger().tail(50) if record.get("action") == "config_invalid"
+    ]
+
+
+def test_every_closed_vocabulary_is_checked(config_path: Path) -> None:
+    """The report is not special to verbosity.
+
+    ``style`` and ``humor_level`` fall back the same way and had the same silent
+    behaviour; a check written for one field would leave the other two lying.
+    """
+    config_path.write_text(
+        json.dumps(dict(CONFIG, style="sarcastic", humor_level="chaotic")), encoding="utf-8"
+    )
+
+    voice = load(config_path)
+
+    assert voice.style == DEFAULTS["style"]
+    assert voice.humor_level == DEFAULTS["humor_level"]
+    assert voice.invalid_fields == {"style": "sarcastic", "humor_level": "chaotic"}
+    assert len(voice.warnings) == 2
 
 
 # -- what the page reads ---------------------------------------------

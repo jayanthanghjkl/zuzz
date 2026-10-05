@@ -27,6 +27,67 @@ This file is automatically updated by the AI assistant. It tracks every change m
 
 ---
 
+## [2026-10-05] Personality config reports values it could not honour
+
+**1370 passed, 2 skipped, 0 failed** (1361 before, plus 9 new tests). One behavioural
+change: a personality setting outside its closed vocabulary is now *said* rather than
+silently replaced.
+
+### Fixed
+
+- `config/personality.json` ships `"verbosity": "low"`, which is not one of `terse`,
+  `concise`, `detailed`. `load()` substituted `concise` and said nothing — a user who
+  wrote `low` could not tell their setting had been dropped, and the only way to find out
+  was to notice the page showing a value they had not typed.
+- `style` and `humor_level` had the same silent behaviour and now report the same way. The
+  reporting is written for all three vocabularies, not for `verbosity` alone.
+
+### Changed
+
+- `brain/cerebellum/personality_config.py` — `Personality` carries `invalid_fields`
+  (each rejected field mapped to what was actually written) and a `warnings` property of
+  one sentence per field, naming the field, the value, the legal values and the default
+  used instead. Both appear in `to_dict()`.
+- A rejected value is logged once per distinct problem as a `config_invalid` record on the
+  activity log. **Once per problem, not once per read:** `load()` runs on every prompt
+  build and the activity log is what the Basal Ganglia reads for habits, so warning on
+  every read would fill the tail it samples with one identical line and bury the patterns
+  it is looking for. Pinned by a test.
+- `GET /api/personality/settings` and `POST /api/personality/settings` return
+  `invalid_fields` and `warnings` alongside the effective values.
+- Blank is **not** reported. A blank field is the documented way to say "use the default",
+  and a warning that fires on correct use teaches people to ignore warnings.
+
+### Added
+
+- `tests/test_personality_api.py` — the personality endpoints, previously untested. Four
+  tests, including that a valid config reports nothing, that an invalid one is reported
+  with the legal values named, and that fixing one field does not hide a second that is
+  still wrong.
+- Five tests in `tests/test_cerebellum.py` for the fallback-and-report path: the log record,
+  the once-per-problem guarantee, blank-stays-quiet, a valid file stays quiet, and every
+  closed vocabulary being checked.
+
+### Notes
+
+- `POST` still **refuses** an invalid value rather than writing it. Reporting is for the
+  file; a request is held to the vocabulary, or the API would produce the very values the
+  new warning reports.
+- `config/personality.json` is deliberately left at `"low"`. It is now visible rather than
+  silent, which is what was asked for; changing the operator's value is their call.
+- **The 11 reported Parietal Lobe failures do not exist.** `tests/test_parietal_lobe.py`
+  (41) and `tests/test_parietal_api.py` (15) both pass, and the whole suite was green
+  before this change. `PARIETAL_TOOLS` is registered in `registry.py:124` and
+  `catalogue_mismatches()` is empty, so there is no catalogue/handler mismatch to fix.
+  Nothing was changed there.
+- `tests/test_kilo_integration.py` (untracked, from a concurrent session) fails 5-7 tests
+  depending on run order — `DiffAlreadyApplied`, `TypeError` and `AttributeError` in
+  `body/mouth/kilo/`. Unrelated to this change and not fixed here: `kilo_engine.py` and
+  `kilo_review.py` were being edited at the time of the run. Baseline with that file
+  excluded: 1370 passed, 2 skipped.
+
+---
+
 ## [2026-10-05] Phase 6: Hippocampus, Basal Ganglia, Cerebellum, and the Parietal Lobe
 
 **1361 passed, 2 skipped, 0 failed.** ZUZZ now forgets nothing on purpose, acts on what
