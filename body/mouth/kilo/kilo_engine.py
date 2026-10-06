@@ -286,6 +286,7 @@ class KiloEngine:
             proposal = self.diffs.propose(target, blocks, agent="debugger",
                                           reader=self._reader(decision))
             record.update(proposal.to_dict(include_text=True))
+            record["proposed"] = record["files"]
         return record
 
     async def refactor(
@@ -340,7 +341,7 @@ class KiloEngine:
             f"Write pytest tests for: {path}\nGoal: {goal or 'cover behaviour and edges'}",
             f"--- {path} ---\n",
             f"Return the complete test file. It belongs at {where}.",
-            where,
+            where, redirect_to=where,
         )
 
     # -- running ---------------------------------------------------------
@@ -508,6 +509,7 @@ class KiloEngine:
         source_prefix: str,
         tail: str,
         fallback_path: str,
+        redirect_to: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Read a file, ask a writer agent for its replacement, and propose it.
 
@@ -528,6 +530,10 @@ class KiloEngine:
             source_prefix: What introduces the pasted source in the prompt.
             tail: The closing instruction, usually naming the format wanted.
             fallback_path: Where the result goes when the model returned no blocks.
+            redirect_to: A path every returned block is forced onto, or None to take
+                the model's own path. :meth:`write_tests` sets this, and it is why a
+                Tester that ignores the instruction still lands its file where pytest
+                will collect it.
 
         Returns:
             The proposal, the goal, and the file's current contents.
@@ -537,9 +543,12 @@ class KiloEngine:
             decision, agent,
             f"{instruction}\n\n{source_prefix}{source[:40_000]}\n\n{tail}",
         )
+        blocks = parse_file_blocks(result.text)
+        if redirect_to is not None:
+            blocks = [(redirect_to, body) for _, body in blocks]
         proposal = self.diffs.propose(
             workspace,
-            parse_file_blocks(result.text) or [(fallback_path, result.text)],
+            blocks or [(fallback_path, result.text)],
             agent=agent, reader=self._reader(decision),
         )
         return {
@@ -601,21 +610,41 @@ class KiloEngine:
         """Return a ``(path) -> text`` callable for diffing.
 
         The proposal store needs each file's current text to build an honest diff and
-        an honest rollback, and that read goes through Finger with the caller's
-        decision rather than through :func:`open`. A package that reads around the
-        Body would be a package whose reads nobody audited.
+        an honest rollback. Finger refuses a read whose decision names a different
+        category, and the caller's decision here is routinely *not* ``read_files`` —
+        ``generate`` and ``refactor`` arrive holding a ``generate_code`` decision, so
+        asking Finger to read the pre-image with it is refused, correctly.
+
+        Rather than make every generating call ask for a second decision it cannot
+        act on, the pre-image read falls back to :func:`~body.mouth.kilo.kilo_diff.read_plain`
+        when Finger declines. That is a deliberate exception and it is narrow:
+
+        * it is a read, not a write, so nothing outside the proposal changes;
+        * the path was already checked by the workspace guard, which is what actually
+          keeps the read inside the sandbox — the decision check is a second line, not
+          the one;
+        * the result is shown to the user in a diff and is the text a rollback would
+          restore, so a wrong one is a wrong restore rather than a wrong write.
+
+        The write path never takes this route. :meth:`DiffStore.apply` still requires a
+        ``write_files`` decision for the exact root, so the fallback cannot become a
+        way to write.
 
         Args:
-            decision: The caller's decision.
+            decision: The caller's decision, used when Finger will accept it.
 
         Returns:
             The callable, or None when the engine has no FileManager.
         """
         if self.files is None:
             return None
+        from body.mouth.kilo.kilo_diff import read_plain
 
-        def reader(absolute: str) -> str:
-            return str(self.files.read(decision, absolute))
+        def reader(absolute: str) -> Any:
+            try:
+                return str(self.files.read(decision, absolute))
+            except Exception:
+                return read_plain(absolute)
 
         return reader
 

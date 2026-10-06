@@ -274,6 +274,39 @@ class KiloWorkspace:
         scratch = is_inside(target, str(self.root))
         return Workspace(target, os.path.basename(target.rstrip("\\/")) or "kilo", True, scratch)
 
+    # -- approving -------------------------------------------------------
+
+    def register(self, path: str) -> Workspace:
+        """Approve a folder the user has just named, and return it.
+
+        The counterpart to :class:`~body.mouth.kilo.exceptions.WorkspaceConfirmationRequired`,
+        and the only way a path outside the scratch root ever becomes a workspace. It
+        takes no decision because the caller's decision is the thing it is standing in
+        for — which is why this method is not on the engine and not reachable from a
+        tool: the approval has to come from a person answering a prompt, not from a
+        model that decided the folder looked fine.
+
+        Registering does not bypass the refusal. ``resolve`` still runs, so a path
+        inside ZUZZ's own tree raises here exactly as it would have before.
+
+        Args:
+            path: The folder the user approved.
+
+        Returns:
+            The workspace, now registered.
+
+        Raises:
+            WorkspaceRefused: The path is inside ZUZZ's own tree.
+            WorkspaceNotFound: The path is not a directory.
+        """
+        space = self.resolve(path)
+        entry = os.path.normcase(os.path.normpath(space.root))
+        if not any(
+            entry == os.path.normcase(os.path.normpath(item)) for item in self.registered
+        ):
+            self.registered.append(str(space.root))
+        return space
+
     # -- internals -------------------------------------------------------
 
     def _is_registered(self, path: str) -> bool:

@@ -18,12 +18,24 @@ Neither writes. The Debugger proposes a fix; this module never applies one.
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from body.mouth.kilo.exceptions import DecisionRefused, ModelUnavailable
 
-__all__ = ["Finding", "Reviewer", "checks", "get_reviewer", "parse_model_findings"]
+__all__ = [
+    "Finding",
+    "Reviewer",
+    "RISKY_CALLS",
+    "RISKY_SHADOWS",
+    "SECRET_NAME",
+    "SHELL_CALLS",
+    "SUBPROCESS_CALLS",
+    "checks",
+    "get_reviewer",
+    "parse_model_findings",
+]
 
 #: Builtins a project should not shadow. Shadowing ``id`` or ``input`` in a module
 #: scope breaks every other module that imported it from there.
@@ -33,6 +45,22 @@ RISKY_SHADOWS = frozenset({
 
 #: Calls worth a second look even though they are not banned outright.
 RISKY_CALLS = frozenset({"eval", "exec", "compile", "__import__", "input"})
+
+#: Calls that hand a string to a shell. Separate from :data:`RISKY_CALLS` because
+#: these take no code as an argument — the danger is the *interpreter* they reach,
+#: not what they evaluate — and they are the usual way a path traversal or an
+#: argument injection gets in. ``os.system`` and ``os.popen`` reach ``cmd.exe``;
+#: ``Popen``/``run``/``call``/``check_output`` do it whenever ``shell=True``.
+SHELL_CALLS = frozenset({"system", "popen"})
+
+#: The ``subprocess`` functions that only reach a shell when asked to.
+SUBPROCESS_CALLS = frozenset({"Popen", "run", "call", "check_output", "check_call"})
+
+#: Names whose assignment means a secret. Matched against the whole identifier with
+#: ``re.search``, so ``DB_PASSWORD``, ``api_key`` and ``_SECRET_TOKEN`` all match,
+#: because those are the spellings people actually use and an exact-match list would
+#: catch none of them.
+SECRET_NAME = re.compile(r"(?:passw|secret|token|api_?key|credential)", re.IGNORECASE)
 
 #: Severities, most serious first.
 ORDER = {"bug": 0, "security": 1, "quality": 2, "unused": 3, "info": 4}
@@ -65,6 +93,30 @@ class Finding:
 def _rank(finding: Finding) -> Tuple[int, str]:
     """Return a sort key placing the most serious findings first."""
     return (ORDER.get(finding.severity, 5), finding.where)
+
+
+def _shell_true(node: ast.Call) -> bool:
+    """Return whether a call passes ``shell=True``.
+
+    Looks at the keyword rather than inferring it, and reads ``**kwargs`` as *not*
+    shell because it cannot be known statically. A false negative here means one
+    missed finding; a false positive would mean flagging correct code, which is the
+    more expensive error for a reviewer whose findings a user has to read.
+
+    Args:
+        node: The call node.
+
+    Returns:
+        True only when ``shell=True`` is written out in the call.
+    """
+    for keyword in node.keywords:
+        if keyword.arg != "shell":
+            continue
+        value = keyword.value
+        if isinstance(value, ast.Constant):
+            return bool(value.value)
+        return isinstance(value, ast.NameConstant) and bool(value.value)
+    return False
 
 
 def checks(source: str, path: str = "code.py") -> List[Finding]:
@@ -112,6 +164,22 @@ def checks(source: str, path: str = "code.py") -> List[Finding]:
                 found.append(Finding("security", f"{path}:{line}",
                                      f"{name}(...) executes code at runtime",
                                      "use a literal, a mapping or an import"))
+            elif name in SHELL_CALLS:
+                found.append(Finding("security", f"{path}:{line}",
+                                     f"{name}(...) hands its argument to a shell",
+                                     "pass an argument vector instead; a shell "
+                                     "reinterprets spaces, quotes and semicolons"))
+            elif name in SUBPROCESS_CALLS and _shell_true(node):
+                found.append(Finding("security", f"{path}:{line}",
+                                     f"{name}(..., shell=True) hands its argument to a shell",
+                                     "drop shell=True and pass the command as a list"))
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            target = node.targets[0] if isinstance(node, ast.Assign) else node.target
+            if isinstance(target, ast.Name) and SECRET_NAME.search(target.id):
+                found.append(Finding("security", f"{path}:{line}",
+                                     f"{target.id} looks like a credential held in source",
+                                     "read it from the environment or a secret store at "
+                                     "use, so a leak of this file is not a leak of it"))
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for argument in list(node.args.args) + list(node.args.kwonlyargs):
                 if argument.arg in RISKY_SHADOWS:
@@ -206,7 +274,7 @@ class Reviewer:
         for finding in findings:
             counts[finding.severity] = counts.get(finding.severity, 0) + 1
         blocking = counts.get("bug", 0) + counts.get("security", 0)
-        self._log("kilo", "review", path=path, findings=len(findings), blocking=blocking)
+        self._log("review", path=path, findings=len(findings), blocking=blocking)
         return {
             "path": path, "findings": [f.to_dict() for f in findings], "counts": counts,
             "total": len(findings), "blocking": blocking,

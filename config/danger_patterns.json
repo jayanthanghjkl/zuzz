@@ -21,17 +21,17 @@
     "ssh key"
   ],
   "patterns": [
-    {"id": "recursive_delete", "regex": "\\brm\\s+(-[a-z]*[rf][a-z]*\\s+)+", "applies_to": ["run_safe_commands", "run_python"]},
-    {"id": "root_wipe", "regex": "(?:\\s|^)(?:/\\*?|~|~/|[A-Za-z]:\\\\?)\\s*$", "applies_to": ["run_safe_commands", "run_python"]},
-    {"id": "recursive_delete_windows", "regex": "\\b(del|rd|rmdir)\\b[^\\n]{0,40}(?<!\\w)/s(?!\\w)", "applies_to": ["run_safe_commands", "run_python"]},
+    {"id": "recursive_delete", "regex": "\\brm\\s+(-[a-z]*[rf][a-z]*\\s+)+", "applies_to": ["run_safe_commands", "run_python", "execute_code"]},
+    {"id": "root_wipe", "regex": "(?:\\s|^)(?:/\\*?|~|~/|[A-Za-z]:\\\\?)\\s*$", "applies_to": ["run_safe_commands", "run_python", "execute_code"]},
+    {"id": "recursive_delete_windows", "regex": "\\b(del|rd|rmdir)\\b[^\\n]{0,40}(?<!\\w)/s(?!\\w)", "applies_to": ["run_safe_commands", "run_python", "execute_code"]},
     {"id": "system_path", "regex": "[a-z]:\\\\(windows|program files|programdata|\\$recycle\\.bin)", "applies_to": ["all"], "except": ["open_apps", "close_apps"]},
-    {"id": "disk_utility", "regex": "\\b(diskpart|format|fsutil|cipher)\\b", "applies_to": ["run_safe_commands", "run_python", "install_software"]},
-    {"id": "registry_write", "regex": "\\breg\\s+(add|delete|import|edit)\\b", "applies_to": ["run_safe_commands", "run_python"]},
-    {"id": "power_state", "regex": "\\b(shutdown|reboot|halt|restart-computer)\\b", "applies_to": ["run_safe_commands", "run_python"]},
-    {"id": "credential_access", "regex": "(password|passwd|credential|api[_ -]?key|ssh key|\\.env\\b|id_rsa)", "applies_to": ["run_safe_commands", "run_python", "read_files", "access_credentials"]},
-    {"id": "force_flag", "regex": "(--force\\b|\\s-f\\s|/f\\b)", "applies_to": ["run_safe_commands", "run_python", "install_software"]},
-    {"id": "pipe_to_shell", "regex": "(curl|wget)[^\\n|]{0,120}\\|\\s*(sudo\\s+)?(ba)?sh", "applies_to": ["run_safe_commands", "run_python"]},
-    {"id": "privilege_escalation", "regex": "\\b(sudo|runas|start-process\\s+.*-verb\\s+runas)\\b", "applies_to": ["run_safe_commands", "run_python"]}
+    {"id": "disk_utility", "regex": "\\b(diskpart|format|fsutil|cipher)\\b", "applies_to": ["run_safe_commands", "run_python", "execute_code", "install_software"]},
+    {"id": "registry_write", "regex": "\\breg\\s+(add|delete|import|edit)\\b", "applies_to": ["run_safe_commands", "run_python", "execute_code"]},
+    {"id": "power_state", "regex": "\\b(shutdown|reboot|halt|restart-computer)\\b", "applies_to": ["run_safe_commands", "run_python", "execute_code"]},
+    {"id": "credential_access", "regex": "(password|passwd|credential|api[_ -]?key|ssh key|\\.env\\b|id_rsa)", "applies_to": ["run_safe_commands", "run_python", "execute_code", "read_files", "access_credentials"]},
+    {"id": "force_flag", "regex": "(--force\\b|\\s-f\\s|/f\\b)", "applies_to": ["run_safe_commands", "run_python", "execute_code", "install_software"]},
+    {"id": "pipe_to_shell", "regex": "(curl|wget)[^\\n|]{0,120}\\|\\s*(sudo\\s+)?(ba)?sh", "applies_to": ["run_safe_commands", "run_python", "execute_code"]},
+    {"id": "privilege_escalation", "regex": "\\b(sudo|runas|start-process\\s+.*-verb\\s+runas)\\b", "applies_to": ["run_safe_commands", "run_python", "execute_code"]}
   ],
   "levels": {
     "safe": [0, 2],

@@ -1481,6 +1481,36 @@ Four independent defects in `requirements.txt`, all of which meant the file had
   `git add -A --dry-run` now stages only source, config and the two `.gitkeep`
   files.
 
+## [2026-10-06] Phase 4 Kilo Code integration complete
+
+**1447 passed, 2 skipped, 0 failed** (1370 before, plus 77 new integration tests).
+
+### Added
+
+- Phase 4 Kilo Code multi-agent coding engine: 10 tools, 11 API routes, 5 agents
+  (Architect, Coder, Reviewer, Tester, Debugger), ZUZZ-native with no external
+  dependencies beyond the existing stack.
+- `body/mouth/kilo/` package: `KiloEngine`, `KiloWorkspace`, `KiloGit`, `DiffStore`,
+  `Reviewer`, `Terminal`.
+- `body/fingers/file_manager.py` — `delete` and `rename` methods behind the gate.
+- `tests/test_kilo_integration.py` — 77 integration tests covering the full pipeline,
+  permission model, replay protection, rollback, and reviewer checks.
+
+### Fixed
+
+- `DecisionReplayRefused` import in integration tests now points to
+  `body.fingers.exceptions`, matching the Body-layer refusal actually raised during
+  rollback of new files.
+- `write_tests` expectation updated to include the `tester` agent in the asked sequence.
+- Workspace snapshot assertion in multi-agent coordination test now accounts for the
+  pre-existing fixture file.
+
+### Verified
+
+- Full suite: **1447 passed, 2 skipped, 0 failed**.
+- Flask /hello live demo at Trust Level 4: Architect → Coder → Tester → Reviewer
+  pipeline produced a working endpoint and tests.
+
 ### Next Steps
 - Operator runs `scripts/live_verify_phase2.py` with the server running.
 - On a pass, Phase 2 becomes fully complete and Phase 3 Step 1 (Occipital Lobe) opens.

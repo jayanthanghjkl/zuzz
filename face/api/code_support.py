@@ -46,6 +46,7 @@ from body.mouth.kilo.exceptions import (
     CommandRefused,
     CommandTimedOut,
     DiffAlreadyApplied,
+    DiffNotApplied,
     DiffNotFound,
     DiffRefused,
     GitRefused,
@@ -62,30 +63,27 @@ from body.mouth.kilo.exceptions import (
 from core.audit import BLOCKED, CONFIRMATION_REQUESTED, PRECHECK_REFUSAL
 from face.api.file_confirmations import confirmation_payload
 
-#: Refusals that are the caller's input being wrong, not the system's. Checked
-#: *before* :data:`FORBIDDEN`, because the two hierarchies overlap and the more
-#: specific one has to win: ``PackageNameInvalid`` is an ``InstallRefused``, and a
-#: name that is not a package is a 400 rather than a 403 the user cannot act on.
-BAD_INPUT = (
-    PackageNameInvalid,
-    AgentRefused,
-    DiffRefused,
-    CommandRefused,
-    ValueError,
-    TypeError,
-    KeyError,
-)
+#: Refusals that are the caller's input being wrong rather than ZUZZ's answer. Checked
+#: *after* the three tuples below, because every one of these has a more specific
+#: subclass: ``DiffNotFound`` is a ``DiffRefused``, ``DiffNotApplied`` is a
+#: ``DiffRefused``, ``CommandTimedOut`` is a ``CommandRefused`` and
+#: ``PackageNameInvalid`` is an ``InstallRefused``. Testing the parent first would turn
+#: a stale proposal id into a 400 and an unusable package name into a 403 — two answers
+#: that ask the user to fix something that is not the problem.
+BAD_INPUT = (ValueError, TypeError, KeyError, DiffRefused, CommandRefused, AgentRefused)
 
 #: Refusals that mean the thing asked about is not there.
 NOT_FOUND = (DiffNotFound, WorkspaceNotFound)
 
 #: Refusals that mean state changed underfoot: the file moved since the preview, the
-#: diff was already applied, the stop landed, the command ran out of time.
-CONFLICT = (DiffAlreadyApplied, CommandTimedOut, KillSwitchRefused)
+#: diff was already written or was never written, the stop landed, the command ran out
+#: of time. One status for all of them, because from the caller's side they are the same
+#: answer: what you asked for is not what is on the disk now.
+CONFLICT = (DiffAlreadyApplied, DiffNotApplied, CommandTimedOut, KillSwitchRefused)
 
 #: Refusals that are ZUZZ's own reading of the world, and that raising the trust
 #: level would not change.
-FORBIDDEN = (WorkspaceRefused, GitRefused, InstallRefused)
+FORBIDDEN = (WorkspaceRefused, GitRefused, InstallRefused, PackageNameInvalid)
 
 
 class CodeRequest(BaseModel):
@@ -347,6 +345,7 @@ async def run(
     contents: Callable[[], Dict[str, Any]],
     action: Optional[Action] = None,
     extra: Optional[Dict[str, Any]] = None,
+    target: Optional[Callable[[], str]] = None,
 ) -> Dict[str, Any]:
     """Gate, confirm and run one coding operation.
 
@@ -356,9 +355,12 @@ async def run(
         body: The request, including confirmation evidence.
         execute: The engine call, invoked only with an allowed decision.
         contents: What the confirmation popup should show.
-        action: A pre-built action, for the operations that need the target built
-            rather than guessed — apply, rollback, install.
+        action: A pre-built action, for the operations that resolve their own target.
         extra: Extra fields merged into a 202 payload.
+        target: Resolves the workspace to a concrete path, so the gate decides about the
+            folder the bytes will land in rather than about a generic ``kilo:generate``.
+            Required unless ``action`` is given. Called exactly once, before the gate,
+            because a target the gate did not see is a target nobody approved.
 
     Returns:
         The result, a dry-run plan, or a 202 confirmation prompt.
@@ -371,7 +373,26 @@ async def run(
         raise HTTPException(
             status_code=409, detail="kill switch engaged; reset the stop to continue"
         )
-    action = action if action is not None else stack.propose(operation)
+    unknown: Optional[WorkspaceConfirmationRequired] = None
+    if action is None:
+        concrete = ""
+        if target is not None:
+            try:
+                concrete = target()
+            except WorkspaceConfirmationRequired as exc:
+                # The folder is plausible but unapproved. The action is built anyway,
+                # naming the folder, so the popup the user answers is about the thing
+                # that is actually being asked for.
+                unknown, concrete = exc, exc.workspace
+            except Exception as exc:  # noqa: BLE001 — a refusal like any other
+                # A workspace inside ZUZZ's own tree raises here, *before* any action
+                # is built. Mapped rather than leaked: an unhandled refusal would
+                # surface as a 500 and tell the user the request crashed, when in fact
+                # the refusal is the answer and it was correct.
+                audit(request, PRECHECK_REFUSAL, "", None, operation=operation,
+                      error=str(exc))
+                raise refuse(exc) from exc
+        action = stack.propose(operation, concrete)
     threat, decision = gate(request, action)
     if decision.blocked:
         audit(request, BLOCKED, action.target, decision)
@@ -397,9 +418,24 @@ async def run(
                      "threat_score": threat.score},
             "decision": decision.to_dict(),
         }
+    if unknown is not None:
+        # The user has now named the folder, so it becomes a workspace. This is the
+        # only place in the codebase that registers one, which is what keeps the
+        # "ask once about a folder" promise honest rather than advisory.
+        _target, decision = gate(request, write_action(unknown.workspace, "register"))
+        if not decision.allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=f"{unknown.workspace} cannot be registered: {decision.reason}",
+            )
+        stack.workspace.register(unknown.workspace)
+        audit(request, "kilo_workspace_registered", unknown.workspace, decision)
     try:
         result = await execute(decision)
     except WorkspaceConfirmationRequired as exc:
+        # The engine found an unapproved folder the resolver did not, which happens
+        # when ``target`` was not supplied. Answered with the same prompt rather than
+        # a 403, for the same reason :func:`workspace_prompt` exists.
         return await workspace_prompt(
             request, action, decision, threat, contents(), operation, exc
         )

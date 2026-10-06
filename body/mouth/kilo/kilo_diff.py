@@ -35,6 +35,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from body.mouth.kilo.exceptions import (
     DecisionRefused,
     DiffAlreadyApplied,
+    DiffNotApplied,
     DiffNotFound,
     DiffRefused,
     WorkspaceRefused,
@@ -435,12 +436,13 @@ class DiffStore:
 
         Raises:
             DecisionRefused: Either decision is missing or does not allow this.
-            DiffAlreadyApplied: This proposal was never applied.
+            DiffNotApplied: This proposal was never written, so there is nothing to
+                undo.
         """
         self._verify(decision, "modify_project", write_decision)
         proposal = self.get(diff_id)
         if not proposal.applied:
-            raise DiffAlreadyApplied(
+            raise DiffNotApplied(
                 f"{diff_id} was never applied, so there is nothing to roll back"
             )
         restored: List[Dict[str, Any]] = []
@@ -454,6 +456,12 @@ class DiffStore:
                 restored.append({"path": absolute, "action": "restored",
                                  **self._write(write_decision, absolute, change.before)})
         proposal.rolled_back = time.time()
+        # ``applied`` is cleared rather than left set. Leaving it would make a second
+        # rollback succeed and quietly overwrite whatever the user wrote after the
+        # first one, and would leave the Code page offering to roll back a change set
+        # that is not on the disk. ``rolled_back`` keeps the history; ``applied``
+        # describes the present.
+        proposal.applied = 0.0
         self._log("kilo_diff_rolled_back", diff_id=diff_id, files=len(restored))
         return {"diff_id": diff_id, "restored": restored}
 

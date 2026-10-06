@@ -1011,6 +1011,21 @@ for confirmation at every trust level. `system_path` now exempts `open_apps`/`cl
 and a test pins the exemption so it cannot leak into delete or write actions. `C:\` is now
 a volume root: `Delete C:\` is blocked by **immutable rule R1** at every trust level.
 
+### Phase 4 Status
+
+Code-complete and verified 2026-10-06.
+
+* **Phase 4 — Kilo Code multi-agent coding engine** (10 tools, 11 routes, 5 agents).
+  Architect designs, Coder implements, Reviewer objects, Tester covers, Debugger
+  explains. Every proposal is gated through the existing Prefrontal Cortex; rollback
+  snapshots the workspace before apply and restores on request. Five bugs caught and
+  fixed during integration: `Path()` wrapping for workspace files, `write_tests`
+  agent sequencing, `DecisionReplayRefused` import alignment, workspace snapshot
+  assertions, and rollback `delete_files` permission alignment.
+* **Live Flask /hello demo (Trust Level 4):** Architect produced a Flask API design,
+  Coder wrote `app.py`, Reviewer checked for hardcoded credentials, Tester proposed
+  tests, and the resulting endpoint responded correctly.
+
 ### Agent Action Loop Status
 
 LIVE, verified on this machine 2026-10-05. ZUZZ executes **64 tools** from a chat
@@ -1076,13 +1091,14 @@ names the account literally and carries the resolved path `C:\Users\jayan`.
 
 ### Overall Progress
 
-**~85% complete.** 1361 tests passing, 2 skipped (symlink), 0 failures.
+**~85% complete.** 1447 tests passing, 2 skipped, 0 failures.
 
-Phases 1 and 2 are code-complete; Phase 3 is code-complete, including the Parietal Lobe.
-The agent action loop exposes 64 tools. Phase 6 is code-complete and verified: Hippocampus
-memory persists across restarts, Basal Ganglia routines are stored disarmed and arm only
-through an explicit endpoint, and the Cerebellum owns tone. What remains is Phase 1
-end-to-end verification and the two small local models still unpulled.
+Phases 1, 2, 3, 4, and 6 are code-complete. Phase 3 includes the Parietal Lobe.
+The agent action loop exposes 74 tools (64 action-loop tools plus 10 `kilo_*` coding
+tools). Phase 6 is verified: Hippocampus memory persists across restarts, Basal Ganglia
+routines are stored disarmed and arm only through an explicit endpoint, and the
+Cerebellum owns tone. What remains is Phase 1 end-to-end verification and the two small
+local models still unpulled.
 
 ### Next Step
 
@@ -1114,14 +1130,13 @@ end-to-end verification and the two small local models still unpulled.
 * [x] Phase 2 Step 7: integration test
 * [x] **Phase 3 Step 1: Occipital Lobe** — screen vision behind the gate
 * [x] **Phase 3 Step 2: Body/Legs** — browser behind the gate
-* [x] **Agent Action Loop** — 64 tools wired through the safety gate
+* [x] **Agent Action Loop** — 74 tools wired through the safety gate (64 + 10 `kilo_*`)
+* [x] **Phase 4: Kilo Code** — 10 tools, 11 routes, 5 agents, 77 integration tests
 
 ### Not Started
 
 * [ ] Cloud brain connectors need re-verification (no outbound egress on this machine)
-* [ ] Code Tools API surface (`face/api/routes_code.py`) — the ten `kilo_*` tools are wired
-      and reachable, but their REST routes are still landing in a concurrent session
-
-```
-* [x] Local Ollama path VERIFIED LIVE — both models answering, routing L1 to 1.5B and L2 to 3B
+* [x] Code Tools API surface (`face/api/routes_code.py`) — 10 `kilo_*` tools wired and
+      verified, 11 REST routes responding
+* [ ] Download remaining local models (Qwen 1.5B, 3B)
 * [ ] Colab cloud brain — offline, awaiting Jayanthan's notebook restart (tunnel URL unchanged)

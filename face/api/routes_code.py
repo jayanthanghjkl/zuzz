@@ -36,12 +36,13 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from face.api.code_support import (
     CodeRequest,
     engine,
+    refuse,
     run,
     write_action,
     write_decision,
@@ -150,6 +151,54 @@ class ChangeRequest(CodeRequest):
     force: bool = Field(False, description="Overwrite a file that changed since the preview")
 
 
+def _target_for(stack: Any, workspace: str):
+    """Return the resolver :func:`face.api.code_support.run` asks for a workspace root.
+
+    Every gated route passes one of these, and that is load-bearing rather than
+    tidiness. Without it the gate would be asked about ``kilo:generate`` — a string
+    that names no folder — and the user would be shown a confirmation about an action
+    whose target they had never seen. Resolving first means the string the gate
+    scores, the string the popup shows and the string the workspace guard checks are
+    the same one.
+
+    Args:
+        stack: The engine.
+        workspace: The name or path from the request.
+
+    Returns:
+        A zero-argument callable returning the absolute root. It raises rather than
+        returning a fallback, and :func:`face.api.code_support.run` turns the
+        unapproved-folder case into a prompt and the refused case into a 403.
+    """
+    return lambda: str(stack.workspace.resolve(workspace).root)
+
+
+def _pending(stack: Any, diff_id: str) -> Dict[str, Any]:
+    """Return one pending proposal, or refuse.
+
+    Args:
+        stack: The engine.
+        diff_id: The proposal id.
+
+    Returns:
+        The proposal record, with the file bodies.
+
+    Raises:
+        HTTPException: 400 for a blank id, 404 when it names nothing pending. Proposals
+            live in memory only, so a stale id after a restart is a real answer rather
+            than an empty result.
+    """
+    wanted = str(diff_id or "").strip()
+    if not wanted:
+        raise HTTPException(status_code=400, detail="name the proposal")
+    try:
+        return stack.preview_diff(wanted)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001 — mapped like any refusal
+        raise refuse(exc) from exc
+
+
 def _estimate(proposal: Dict[str, Any]) -> Dict[str, Any]:
     """Return the file count and size a confirmation popup shows.
 
@@ -192,7 +241,7 @@ async def generate(request: Request, body: GenerateRequest) -> Dict[str, Any]:
     stack = engine(request)
     description = body.description.strip()
     if not description:
-        raise ValueError("say what to build")
+        raise HTTPException(status_code=400, detail="say what to build")
     contents = lambda: {  # noqa: E731 — a one-line preview, not worth a def
         "description": description[:500],
         "workspace": body.workspace or "the scratch workspace",
@@ -205,6 +254,7 @@ async def generate(request: Request, body: GenerateRequest) -> Dict[str, Any]:
             agent="architect" if body.plan_only else body.agent,
         ),
         contents,
+        target=_target_for(stack, body.workspace),
     )
 
 
@@ -225,12 +275,13 @@ async def review(request: Request, body: ReviewRequest) -> Dict[str, Any]:
     stack = engine(request)
     path = body.path.strip()
     if not path:
-        raise ValueError("name the file to review")
+        raise HTTPException(status_code=400, detail="name the file to review")
     return await run(
         request, "review", body,
         lambda decision: stack.review(decision, path, body.workspace),
         lambda: {"description": f"Review {path}",
-                  "workspace": body.workspace or "the scratch workspace"},
+                 "workspace": body.workspace or "the scratch workspace"},
+        target=_target_for(stack, body.workspace),
     )
 
 
@@ -254,13 +305,14 @@ async def debug(request: Request, body: DebugRequest) -> Dict[str, Any]:
     stack = engine(request)
     error = body.error.strip()
     if not error:
-        raise ValueError("paste the error you want explained")
+        raise HTTPException(status_code=400, detail="paste the error you want explained")
     return await run(
         request, "debug", body,
         lambda decision: stack.debug(decision, error, body.code, body.workspace),
         lambda: {"description": "Find the cause of an error and propose a fix",
                   "workspace": body.workspace or "the scratch workspace",
                   "note": "proposes a diff; it writes nothing until you apply it"},
+        target=_target_for(stack, body.workspace),
     )
 
 
@@ -282,13 +334,14 @@ async def refactor(request: Request, body: RefactorRequest) -> Dict[str, Any]:
     stack = engine(request)
     path, goal = body.path.strip(), body.goal.strip()
     if not path or not goal:
-        raise ValueError("name the file and what better means for it")
+        raise HTTPException(status_code=400, detail="name the file and what better means for it")
     return await run(
         request, "refactor", body,
         lambda decision: stack.refactor(decision, path, goal, body.workspace),
         lambda: {"description": f"Refactor {path}", "goal": goal[:500],
                   "workspace": body.workspace or "the scratch workspace",
                   "note": "proposes a diff; it writes nothing until you apply it"},
+        target=_target_for(stack, body.workspace),
     )
 
 
@@ -312,13 +365,14 @@ async def write_tests(request: Request, body: TestRequest) -> Dict[str, Any]:
     stack = engine(request)
     path = body.path.strip()
     if not path:
-        raise ValueError("name the file to write tests for")
+        raise HTTPException(status_code=400, detail="name the file to write tests for")
     return await run(
         request, "generate", body,
         lambda decision: stack.write_tests(decision, path, body.goal, body.workspace),
         lambda: {"description": f"Write tests for {path}", "goal": body.goal[:500],
                   "workspace": body.workspace or "the scratch workspace",
                   "note": "proposes a diff; it writes nothing until you apply it"},
+        target=_target_for(stack, body.workspace),
     )
 
 
@@ -341,9 +395,12 @@ async def diff(request: Request, body: DiffRequest) -> Dict[str, Any]:
             only, so a stale id after a restart is a real answer: nothing is waiting.
     """
     stack = engine(request)
-    if body.reject:
-        return {"status": "ok", "result": stack.reject(body.diff_id.strip())}
-    return {"status": "ok", "result": stack.preview_diff(body.diff_id.strip())}
+    wanted = str(body.diff_id or "").strip()
+    try:
+        result = stack.reject(wanted) if body.reject else stack.preview_diff(wanted)
+    except Exception as exc:  # noqa: BLE001 — mapped like any refusal
+        raise refuse(exc) from exc
+    return {"status": "ok", "result": result}
 
 
 # -- writing -----------------------------------------------------------
@@ -371,9 +428,7 @@ async def apply(request: Request, body: ChangeRequest) -> Dict[str, Any]:
             file that moved, 403 for a refusal.
     """
     stack = engine(request)
-    if not body.diff_id.strip():
-        raise ValueError("name the proposal to apply")
-    pending = stack.preview_diff(body.diff_id.strip())
+    pending = _pending(stack, body.diff_id)
     root = str(pending.get("workspace") or stack.workspace.resolve(body.workspace).root)
     # The target is the workspace root rather than the proposal id, so the parked
     # confirmation cannot be spent on a different proposal in the same folder, and so
@@ -383,14 +438,14 @@ async def apply(request: Request, body: ChangeRequest) -> Dict[str, Any]:
         request, "apply", body,
         lambda decision: stack.apply(
             decision, write_decision(request, root, "apply"),
-            body.diff_id.strip(), force=body.force,
+            pending["diff_id"], force=body.force,
         ),
         lambda: _estimate(pending),
         action=action,
         extra={
             "write_action": {"category": str(write_action(root).category),
                              "target": root},
-            "workspace": root, "diff_id": body.diff_id.strip(),
+            "workspace": root, "diff_id": pending["diff_id"],
         },
     )
 
@@ -416,22 +471,20 @@ async def rollback(request: Request, body: ChangeRequest) -> Dict[str, Any]:
             403 for a refusal.
     """
     stack = engine(request)
-    if not body.diff_id.strip():
-        raise ValueError("name the proposal to roll back")
-    pending = stack.preview_diff(body.diff_id.strip())
+    pending = _pending(stack, body.diff_id)
     root = str(pending.get("workspace") or stack.workspace.resolve(body.workspace).root)
     action = stack.propose("rollback", root)
     return await run(
         request, "rollback", body,
         lambda decision: stack.rollback(
-            decision, write_decision(request, root, "rollback"), body.diff_id.strip()
+            decision, write_decision(request, root, "rollback"), pending["diff_id"]
         ),
         lambda: _estimate(pending),
         action=action,
         extra={
             "write_action": {"category": str(write_action(root, "rollback").category),
                              "target": root},
-            "workspace": root, "diff_id": body.diff_id.strip(),
+            "workspace": root, "diff_id": pending["diff_id"],
         },
     )
 
@@ -461,6 +514,7 @@ async def run_tests(request: Request, body: RunRequest) -> Dict[str, Any]:
         lambda: {"description": f"Run pytest on {body.path}",
                  "workspace": body.workspace or "the scratch workspace",
                  "note": "runs a test suite; it writes nothing"},
+        target=_target_for(stack, body.workspace),
     )
 
 

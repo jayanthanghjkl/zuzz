@@ -36,7 +36,15 @@ from brain.thalamus.router import Router
 from body.fingers import DirectoryManager, FileManager, TrashManager
 from body.hands import Hands
 from body.legs import BrowserActions
-from body.mouth.kilo import KiloEngine
+from body.mouth.kilo import (
+    DiffStore,
+    KiloConfig,
+    KiloEngine,
+    KiloGit,
+    KiloWorkspace,
+    Reviewer,
+    Terminal,
+)
 from core.audit import get_audit_log
 from core.config import ROOT, get_settings
 from face.api import (
@@ -288,13 +296,24 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     # and logger, and a proposal whose "before" text came from a second reader would be
     # a proposal whose rollback restores a fiction.
     #
-    # Constructed directly rather than through ``get_engine()`` on purpose. The
-    # process-wide accessor would capture whichever collaborators happened to be first
-    # and hand them to every later caller, so a test that built its own app would find
-    # a stale FileManager on the engine and write through it. One engine per app, with
-    # that app's collaborators, is the arrangement that makes the app's kill switch the
-    # engine's kill switch by construction rather than by agreement.
+    # Every collaborator is constructed rather than reached for through its
+    # ``get_*()`` accessor, and that is load-bearing rather than tidiness. Those
+    # accessors are process-wide singletons that capture whichever collaborators
+    # happened to be first, so the engine a second app builds would reuse the first
+    # app's FileManager and the first app's kill switch — a real stop on one instance
+    # would not stop the other, and a test would write through another app's Body.
     app.state.kilo = KiloEngine(
+        workspace=KiloWorkspace(),
+        config=KiloConfig(logger=app.state.logger),
+        diffs=DiffStore(
+            files=app.state.file_manager,
+            directories=app.state.directory_manager,
+            logger=app.state.logger,
+            kill_switch=app.state.kill_switch,
+        ),
+        git=KiloGit(logger=app.state.logger, kill_switch=app.state.kill_switch),
+        terminal=Terminal(logger=app.state.logger, kill_switch=app.state.kill_switch),
+        reviewer=Reviewer(logger=app.state.logger),
         files=app.state.file_manager,
         directories=app.state.directory_manager,
         logger=app.state.logger,

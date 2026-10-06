@@ -1,11 +1,37 @@
 # Kilo Code Integration Plan — Phase 4
 
-**Status:** Research complete. **Nothing implemented.** Awaiting decisions on the five
-questions in section 10.
+**Status:** Approved and implemented. Option A, pure Python under `body/mouth/kilo/`. The
+five questions in section 10 were answered and are recorded in section 11.
 
 **Researcher:** Phase 4 Session 4
 **Date:** 2026-10-05
 **Subject:** Should Kilo Code become ZUZZ's code generation and multi-agent coding engine?
+
+### What was built
+
+| Piece | Where |
+|---|---|
+| Ten modules: engine, config, agents, workspace, diff, git, terminal, review, exceptions | `body/mouth/kilo/` |
+| Ten tools in the catalogue | `body/tools/code_tools.py` |
+| Ten JSON schemas | `brain/cerebrum/tools_schema.py` |
+| Eleven endpoints | `face/api/routes_code.py`, gate/confirm in `face/api/code_support.py` |
+| Engine attached to the app | `face/api/server.py` |
+| Offline diff and review page | `face/frontend/pages/code.html`, `static/js/code.js`, `static/css/code.css` |
+| Sixty-seven tests | `tests/test_kilo_integration.py` |
+
+### Two changes made outside `body/mouth/kilo` that the plan did not anticipate
+
+* **`config/danger_patterns.json` — `execute_code` added to ten destructive patterns.**
+  `kilo_run_tests` is judged under `execute_code`, and the Amygdala's per-category scoping
+  meant `recursive_delete`, `root_wipe`, `force_flag` and seven others were reported as
+  *"ignored inapplicable patterns"* for it. The terminal allowlist already blocks `rm`, so
+  this was a missing second layer rather than a hole — but section 8.5 claims the Amygdala
+  scores the command string before it runs, and that claim was false for this category
+  until the scoping was widened.
+* **`DiffNotApplied` added as its own exception.** `rollback` was raising
+  `DiffAlreadyApplied` when a proposal had *never* been applied, which is the opposite fact
+  reported under the opposite name. `DiffStore.rollback` also left `applied` set, so a
+  second rollback silently re-ran against a file the user may have edited since.
 
 ---
 
@@ -530,39 +556,56 @@ Coder first.
 
 ---
 
-## 13. Five open questions for Jayanthan
+## 13. Five questions, answered
+
+Jayanthan's answers, recorded as given. Each is enforced by a test rather than by a
+convention — the test name is the citation.
 
 **1. Given that letting Kilo write files bypasses the gate — do you still want the Kilo binary at all?**
-The research says Option A (ZUZZ-native, Kilo's design) gives the same five agents with
-every safety layer intact and no new dependency. Option B adds a 65.6 MB binary and an
-undocumented HTTP surface to reuse Kilo's prompts. Recommendation: **Option A**, revisit
-Option B later if the prompts prove worth the dependency. This is the decision the rest of
-the plan hangs on.
+**Answer: Option A.** Pure Python, Kilo's design adopted, every safety layer intact and no new
+dependency. No Bun binary, no SDK, no telemetry switch to flip.
+*Enforced by* `test_a_generated_workspace_cannot_be_zuZZ_itself`, and structurally by
+`kilo_workspace.is_refused`.
 
 **2. Do you accept that `install_packages` asks for confirmation at all five trust levels?**
-This follows immutable rule R7 and matches the existing `install_software` and
-`download_files` rows. It costs one click per install, including at level 5. The
-alternative — auto-approving at level 5 — would make R7 unenforceable at the level where
-an unattended agent is most plausible. Recommendation: **ask at every level.**
+**Answer: yes, at every level including 5.** Immutable rule R7 has no trust-level escape hatch,
+and a wheel executes its author's build hooks.
+*Enforced by* `test_install_asks_at_every_trust_level_including_five`, which reads the matrix
+rather than a copy of it.
 
 **3. Plain read-only diffs, or a real in-browser editor (CodeMirror/Monaco)?**
-A real editor is a large dependency for a page whose content is mostly diffs, and it
-diverges from the existing frontend stack. Recommendation: **no editor dependency**;
-server-rendered highlighted diffs.
+**Answer: no editor, no CDN.** Server-rendered diffs. The page also has no editable buffer at
+all — an editor there would be a second write path that does not go through Body/Fingers, which
+is the one thing this integration exists not to have.
 
 **4. Should ZUZZ be able to modify its own non-core code?**
-The task says Kilo must not touch `brain/`, `body/`, `face/` or `core/`. That is stricter
-than `PROJECT.md` §13, which permits modifying own plugins and non-core utility code.
-Tighter is safer and easier to audit, but it removes self-improvement — a stated project
-goal — from the Kilo path. Recommendation: **keep the strict block**; revisit
-self-modification as a separate, separately-gated capability.
+**Answer: keep the strict block.** `brain/`, `body/`, `face/`, `core/`, `config/`, `tests/`,
+`scripts/`, `docs/`, `storage/`, `.git/` and the six named critical files are refused at every
+trust level — as a *refusal and not a clamp*, so there is no trust level at which it can be
+turned off. Self-modification is left as a separate, separately-gated capability if it is ever
+wanted.
+*Enforced by* `test_every_core_directory_is_refused_at_level_five` and
+`test_every_critical_file_is_refused_by_name`.
 
-**5. Groq 70B for all five agents, or the cheaper mix the task specifies?**
-The task assigns Qwen Coder 3B to Coder and Tester. Qwen Coder 3B is ~2 GB VRAM against a
-6 GB budget with a 4.5 GB ceiling, so local use competes with Moondream. Recommendation:
-**Groq 70B for all five initially** (free, no VRAM cost), with Qwen Coder 3B as an
-opt-in fallback if Groq rate-limits at 30 req/min during agent loops. Agent pipelines
-make many calls per task and may well hit that ceiling.
+**5. Groq for all five agents, or the cheaper mix?**
+**Answer: Groq primary for all five, with `qwen2.5-coder:3b` as an automatic local fallback.**
+Not an opt-in: a 429 becomes a slower answer rather than a failed one. A cloud failure that is
+*not* a rate limit is **not** substituted — answering a malformed request from a different model
+would produce a proposal from a request nobody made.
+*Enforced by* `test_a_rate_limited_cloud_falls_back_to_local`,
+`test_a_cloud_failure_that_is_not_a_rate_limit_is_not_substituted`.
+
+### Two places the implementation had to diverge from this plan
+
+* **`install_packages` has no HTTP endpoint.** Section 10 listed eleven paths and none of them
+  is install, which was the right call for a different reason than it looks like: a row that asks
+  at every trust level belongs to the tool catalogue and the chat, where the prompt is already in
+  front of the user, rather than to a page that could reduce it to one button.
+* **`/api/code/diff` is also the reject path.** The Code page needs a Reject button and rejecting
+  needs no permission — a user who says no has already exercised the authority that matters — so
+  it rides on the preview endpoint as a flag instead of becoming a twelfth path.
+
+---
 
 ---
 

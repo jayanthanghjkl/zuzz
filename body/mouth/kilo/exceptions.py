@@ -122,6 +122,18 @@ class DiffAlreadyApplied(DiffRefused):
     """This diff was already applied, so there is nothing left to roll back."""
 
 
+class DiffNotApplied(DiffRefused):
+    """This diff was never applied, so there is nothing to undo.
+
+    Its own class rather than a reuse of :class:`DiffAlreadyApplied`, because the two
+    are opposite facts and the caller reacts to them oppositely: one means "you are
+    looking at something already on disk", the other means "nothing happened yet".
+    A single class named for the first would report the second backwards, and a user
+    told a rollback failed because a diff *had* been applied would be sent looking
+    for a change that was never there.
+    """
+
+
 class GitRefused(KiloRefused):
     """The git operation is refused at every trust level.
 
