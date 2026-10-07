@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Activity</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Activity</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <a class="ghost-btn tab-link" href="/" title="Chat">Chat</a>
+      <a class="ghost-btn tab-link" href="/pages/dashboard.html" title="Dashboard">Dashboard</a>
+    </div>
+  </header>
+
+  <main class="dash-grid">
+    <section class="panel span-2" aria-label="Activity log">
+      <div class="panel-head">
+        <span class="panel-title">Activity Log</span>
+        <button id="refresh-activity" class="ghost-btn" type="button">Refresh</button>
+        <button id="export-activity" class="ghost-btn" type="button">Export</button>
+      </div>
+      <div class="form-grid">
+        <label>Category
+          <select id="filter-cat"><option value="">All</option><option value="chat">Chat</option><option value="file">Files</option><option value="browser">Browser</option></select>
+        </label>
+        <label>Since
+          <input id="filter-since" type="datetime-local" />
+        </label>
+      </div>
+      <div id="activity-list" class="activity-list"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/js/activity.js"></script>
+</body>
+</html>

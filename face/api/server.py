@@ -47,12 +47,16 @@ from body.mouth.kilo import (
 )
 from core.audit import get_audit_log
 from core.config import ROOT, get_settings
+from brain.communication_hub.hub import CommunicationHub
+from brain.background_agents.agent_manager import AgentManager
 from face.api import (
     routes_assess,
     routes_brain,
     routes_browser,
     routes_chat,
     routes_code,
+    routes_communication,
+    routes_dashboard,
     routes_files,
     routes_habits,
     routes_hands,
@@ -65,6 +69,7 @@ from face.api import (
     routes_safety,
     routes_settings,
     routes_vision,
+    routes_background,
 )
 from face.api.chat_actions import ChatActionRunner
 from face.api.file_confirmations import PendingConfirmations
@@ -365,6 +370,7 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     app.include_router(routes_personality.router)
     app.include_router(routes_parietal.router)
     app.include_router(routes_code.router)
+    app.include_router(routes_dashboard.router)
 
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

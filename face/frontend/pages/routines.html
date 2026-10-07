@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Routines</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Routines</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <a class="ghost-btn tab-link" href="/" title="Chat">Chat</a>
+      <a class="ghost-btn tab-link" href="/pages/dashboard.html" title="Dashboard">Dashboard</a>
+    </div>
+  </header>
+
+  <main class="dash-grid">
+    <section class="panel span-2" aria-label="Routines">
+      <div class="panel-head">
+        <span class="panel-title">Routines</span>
+        <button id="refresh-routines" class="ghost-btn" type="button">Refresh</button>
+      </div>
+      <div id="routine-list" class="routine-list"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/js/routines.js"></script>
+</body>
+</html>

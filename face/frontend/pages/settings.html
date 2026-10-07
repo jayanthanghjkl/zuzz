@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Settings</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Settings</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <a class="ghost-btn tab-link" href="/" title="Chat">Chat</a>
+      <a class="ghost-btn tab-link" href="/pages/dashboard.html" title="Dashboard">Dashboard</a>
+      <a class="ghost-btn tab-link" href="/pages/plugins.html" title="Plugins">Plugins</a>
+      <a class="ghost-btn tab-link" href="/pages/routines.html" title="Routines">Routines</a>
+      <a class="ghost-btn tab-link" href="/pages/activity.html" title="Activity">Activity</a>
+      <a class="ghost-btn tab-link" href="/pages/brain_viz.html" title="Brain">Brain</a>
+    </div>
+  </header>
+
+  <main class="dash-grid">
+    <section class="panel" aria-label="Trust level">
+      <div class="panel-head"><span class="panel-title">Trust Level</span></div>
+      <p class="prose">How much autonomy ZUZZ has. Higher levels auto-approve more actions.</p>
+      <div class="form-grid">
+        <label>Level
+          <select id="trust-level">
+            <option value="1">L1 — Ask for everything</option>
+            <option value="2">L2 — Safe actions auto</option>
+            <option value="3" selected>L3 — Most actions auto</option>
+            <option value="4">L4 — All except immutable rules</option>
+            <option value="5">L5 — Full autonomy</option>
+          </select>
+        </label>
+        <button id="trust-save" class="send-btn" type="button">Update Trust</button>
+      </div>
+      <p id="trust-warn" class="prose muted"></p>
+    </section>
+
+    <section class="panel" aria-label="Model preferences">
+      <div class="panel-head"><span class="panel-title">Model Preferences</span></div>
+      <div class="form-grid">
+        <label>Default model
+          <select id="model-pref"><option value="auto">Auto</option><option value="qwen">Qwen</option><option value="groq">Groq</option></select>
+        </label>
+        <label>Streaming
+          <select id="streaming-pref"><option value="true">On</option><option value="false">Off</option></select>
+        </label>
+      </div>
+      <button id="model-save" class="send-btn" type="button">Save</button>
+    </section>
+
+    <section class="panel" aria-label="Personality">
+      <div class="panel-head"><span class="panel-title">Personality</span></div>
+      <div class="form-grid">
+        <label>Style<select id="style-sel"><option value="terse">Terse</option><option value="concise">Concise</option><option value="detailed">Detailed</option></select></label>
+        <label>Humor<select id="humor-sel"><option value="dry">Dry</option><option value="light">Light</option><option value="none">None</option></select></label>
+        <label>Verbosity<select id="verb-sel"><option value="terse">Terse</option><option value="concise">Concise</option><option value="detailed">Detailed</option></select></label>
+      </div>
+      <button id="personality-save" class="send-btn" type="button">Save</button>
+    </section>
+
+    <section class="panel" aria-label="Voice">
+      <div class="panel-head"><span class="panel-title">Voice</span></div>
+      <div class="form-grid">
+        <label>Voice ID<select id="voice-sel"><option value="default">Default</option><option value="edge">Edge</option><option value="piper">Piper</option></select></label>
+        <label>Speed<input id="voice-speed" type="number" min="0.5" max="2" step="0.1" value="1" /></label>
+      </div>
+      <button id="voice-save" class="send-btn" type="button">Save</button>
+    </section>
+
+    <section class="panel" aria-label="Appearance">
+      <div class="panel-head"><span class="panel-title">Appearance</span></div>
+      <div class="form-grid">
+        <label>Theme
+          <select id="theme-sel"><option value="dark">Dark</option><option value="light">Light</option><option value="high-contrast">High Contrast</option></select>
+        </label>
+      </div>
+      <button id="theme-save" class="send-btn" type="button">Apply</button>
+    </section>
+
+    <section class="panel" aria-label="Shortcuts">
+      <div class="panel-head"><span class="panel-title">Keyboard Shortcuts</span></div>
+      <div class="shortcut-list">
+        <div class="shortcut"><span>Ctrl+K</span><span>Command palette</span></div>
+        <div class="shortcut"><span>Ctrl+/</span><span>Show shortcuts</span></div>
+        <div class="shortcut"><span>Ctrl+1-9</span><span>Switch tabs</span></div>
+        <div class="shortcut"><span>Esc</span><span>Close modals</span></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/js/settings.js"></script>
+</body>
+</html>

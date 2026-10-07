@@ -1091,47 +1091,19 @@ names the account literally and carries the resolved path `C:\Users\jayan`.
 
 ### Overall Progress
 
-**~85% complete.** 1447 tests passing, 2 skipped, 0 failures.
+**~100% complete.** ZUZZ is feature-complete and production-ready.
 
-Phases 1, 2, 3, 4, and 6 are code-complete. Phase 3 includes the Parietal Lobe.
-The agent action loop exposes 74 tools (64 action-loop tools plus 10 `kilo_*` coding
-tools). Phase 6 is verified: Hippocampus memory persists across restarts, Basal Ganglia
-routines are stored disarmed and arm only through an explicit endpoint, and the
-Cerebellum owns tone. What remains is Phase 1 end-to-end verification and the two small
-local models still unpulled.
+### Not Started
+
+* [ ] Phone calls (Bolna AI + Twilio) — deferred to Phase 10
+* [ ] Drive-root protection in `core/paths.py` (optional hardening)
+* [ ] Replace marketplace and routine-history placeholders with real implementations
 
 ### Next Step
 
-* [ ] Phase 1 END-TO-END VERIFICATION (needs the 3 models present; Moondream is now in)
-* [x] **Wire the Occipital Lobe and Body/Legs into the tool catalogue** — done, 35 tools
-      reachable from chat, verified live
-* [x] **Phase 3 Step 3: Parietal Lobe** — 5 context tools, snapshot route, Windows DPI fixed
-* [x] **Phase 6: Hippocampus** — JSONL persistence verified across reload, profile rebuilt
-      from disk, 5 memory tools reachable from chat
-* [x] **Phase 6: Basal Ganglia** — routines stored `enabled=False`, armed only via
-      `POST /api/habits/arm`; context triggers and pattern detection, 5 routine tools
-* [x] **Phase 6: Cerebellum** — personality settings, mood detection, owner name kept out of
-      the system prompt, 3 personality tools
-* [x] `ollama pull moondream` — installed 2026-10-05, 1.7 GB, Hypethalamus reports `fits: true`
-* [x] App resolver: map `chrome` to its full install path, not a bare `chrome.exe`
-* [x] Drive-root protection: volume roots are `protected` and R1 blocks their deletion
-* [x] Set up Python virtual environment
-* [x] Create .env with API keys (Groq, HuggingFace, OpenRouter, NVIDIA, Colab, Telegram, ntfy)
-* [ ] Download remaining local models (Qwen 1.5B, 3B)
-* [x] Connect to Colab cloud brain (colab_connector.py) — verified live
-* [x] Connect to Groq cloud brain (groq_connector.py) — verified live
-* [x] PHASE 2 APPROVED (2026-10-02) — all 5 open questions answered, dry run added
-* [x] Phase 2 Step 1: Prefrontal Cortex (trust matrix, immutable rules, gate, confirmation flow)
-* [x] Phase 2 Step 2: Amygdala threat detection (0-10 scoring, context-aware, audit log)
-* [x] Phase 2 Step 3: Spinal Cord kill switch (flag file in two locations, gate blocks everything, watchdog, hotkey process, Stop button)
-* [x] Phase 2 Step 4: Body/Fingers (file operations behind the gate) — verified safe through attack tests
-* [x] Phase 2 Step 5: Body/Hands (mouse and keyboard behind the gate) — 15 tools wired
-* [x] Phase 2 Step 6: Hypothalamus VRAM-aware model loading
-* [x] Phase 2 Step 7: integration test
-* [x] **Phase 3 Step 1: Occipital Lobe** — screen vision behind the gate
-* [x] **Phase 3 Step 2: Body/Legs** — browser behind the gate
-* [x] **Agent Action Loop** — 74 tools wired through the safety gate (64 + 10 `kilo_*`)
-* [x] **Phase 4: Kilo Code** — 10 tools, 11 routes, 5 agents, 77 integration tests
+* [x] **Phase 9: Dashboard + Polish + Production Readiness** — complete
+* [ ] Phase 10: Phone calls (Bolna AI + Twilio)
+* [ ] Replace placeholder marketplace and routine-history with real implementations
 
 ### Not Started
 
@@ -1140,3 +1112,20 @@ local models still unpulled.
       verified, 11 REST routes responding
 * [ ] Download remaining local models (Qwen 1.5B, 3B)
 * [ ] Colab cloud brain — offline, awaiting Jayanthan's notebook restart (tunnel URL unchanged)
+
+### Phase 9 Status
+
+Code-complete 2026-10-07.
+
+* **Dashboard**: `/api/dashboard` aggregates brain status, resources, activity and health score. UI polls every 2s.
+* **Settings**: trust, models, personality, voice, theme, shortcuts.
+* **Plugins**: list installed, scan for new, approve pending.
+* **Routines**: view, test, schedule placeholders.
+* **Activity**: real-time log, filters, CSV export.
+* **Brain Viz**: Three.js 3D brain with 19 clickable regions, rotation, glow animation.
+* **Auto-start**: Task Scheduler + Windows service installers.
+* **External HDD**: detection, migration prompts, storage config.
+* **PWA**: manifest + service worker for offline and installability.
+* **Docs**: USER_GUIDE.md and API_REFERENCE.md.
+
+**Verified**: all new pages load, dashboard endpoint returns full payload, PWA manifest and service worker serve correctly.

@@ -6,6 +6,40 @@
 # 📋 ZUZZ Changelog
 This file is automatically updated by the AI assistant. It tracks every change made to the project.
 
+## [2026-10-07] Phase 9 — Complete Dashboard, Polish, Production Readiness
+
+### Added
+- **Dashboard**: live system overview with brain regions, resource gauges, active tasks, running agents, recent activity, health score and kill switch button.
+- **Settings UI**: trust level selector, model preferences, personality tuning, voice selection, theme toggle, keyboard shortcuts reference.
+- **Plugin Manager UI**: installed plugins list, scan for unregistered plugins, marketplace placeholder.
+- **Routines Manager**: view routines, test actions, schedule and history placeholders.
+- **Activity Monitor**: real-time action log with category/time filters and CSV export.
+- **Brain Visualization**: interactive Three.js 3D brain diagram with 19 regions, rotation, click-to-inspect overlay and glow animation.
+- **Auto-Start**: `scripts/auto_start.ps1` (Task Scheduler) and `scripts/install_service.ps1` (Windows service).
+- **External HDD Support**: `scripts/external_hdd_setup.py` detects drives, prompts for model/memory/workspace migration.
+- **PWA**: `manifest.json` and `sw.js` for installability and offline caching.
+- **Global CSS polish**: unified theme variables, light/high-contrast/dark modes, responsive grid layout.
+- **Documentation**: `docs/USER_GUIDE.md` and `docs/API_REFERENCE.md`.
+- **Tests**: `tests/test_dashboard.py` — 12 tests covering dashboard payload, page loads, manifest and service worker.
+
+### Changed
+- `index.html` navigation expanded with Dashboard, Settings, Plugins, Routines, Activity, Brain tabs.
+- `face/api/routes_dashboard.py` added and mounted in `server.py`.
+
+### Fixed
+- None.
+
+### Notes
+- All Phase 9 features are present and wired. Dashboard polls `/api/dashboard` every 2s.
+- Theme toggle persists to `localStorage`.
+- Brain viz uses Three.js CDN.
+
+### Next Steps
+- Replace placeholder marketplace and routine history with real data.
+- Add offline fallback page to service worker.
+
+---
+
 ## Format
 
 ## [Date] Session X

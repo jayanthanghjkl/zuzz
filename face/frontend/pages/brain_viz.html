@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Brain Visualization</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Brain Visualization</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <a class="ghost-btn tab-link" href="/" title="Chat">Chat</a>
+      <a class="ghost-btn tab-link" href="/pages/dashboard.html" title="Dashboard">Dashboard</a>
+    </div>
+  </header>
+
+  <main class="brain-viz">
+    <div id="brain-container"></div>
+    <aside id="brain-overlay" class="brain-overlay hidden">
+      <h3 id="overlay-title">Region</h3>
+      <p id="overlay-detail"></p>
+      <button id="overlay-close" class="ghost-btn" type="button">Close</button>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/js/brain_viz.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Dashboard</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Dashboard</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <span id="status-badge" class="badge badge-ok">Online</span>
+      <span id="trust-badge" class="badge">L3</span>
+      <button id="kill-btn" class="stop-btn" type="button" title="Emergency stop">Kill Switch</button>
+      <a class="ghost-btn tab-link" href="/" title="Chat">Chat</a>
+      <a class="ghost-btn tab-link" href="/pages/settings.html" title="Settings">Settings</a>
+      <a class="ghost-btn tab-link" href="/pages/plugins.html" title="Plugins">Plugins</a>
+      <a class="ghost-btn tab-link" href="/pages/routines.html" title="Routines">Routines</a>
+      <a class="ghost-btn tab-link" href="/pages/activity.html" title="Activity">Activity</a>
+      <a class="ghost-btn tab-link" href="/pages/brain_viz.html" title="Brain">Brain</a>
+    </div>
+  </header>
+
+  <main class="dash-grid">
+    <section class="panel" aria-label="Brain health">
+      <div class="panel-head">
+        <span class="panel-title">Brain Health</span>
+        <span id="health-score" class="score-chip">100</span>
+      </div>
+      <div id="brain-regions" class="region-list"></div>
+    </section>
+
+    <section class="panel" aria-label="Resources">
+      <div class="panel-head">
+        <span class="panel-title">Resources</span>
+        <span id="resource-uptime" class="muted"></span>
+      </div>
+      <div class="gauge-grid">
+        <div class="gauge">
+          <span class="gauge-label">VRAM</span>
+          <div class="bar"><div id="bar-vram" class="fill"></div></div>
+          <span id="val-vram" class="gauge-val">0 / 0 MB</span>
+        </div>
+        <div class="gauge">
+          <span class="gauge-label">RAM</span>
+          <div class="bar"><div id="bar-ram" class="fill"></div></div>
+          <span id="val-ram" class="gauge-val">0 / 0 MB</span>
+        </div>
+        <div class="gauge">
+          <span class="gauge-label">CPU</span>
+          <div class="bar"><div id="bar-cpu" class="fill"></div></div>
+          <span id="val-cpu" class="gauge-val">0%</span>
+        </div>
+        <div class="gauge">
+          <span class="gauge-label">GPU</span>
+          <div class="bar"><div id="bar-gpu" class="fill"></div></div>
+          <span id="val-gpu" class="gauge-val">0%</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Active tasks">
+      <div class="panel-head">
+        <span class="panel-title">Active Tasks</span>
+        <span id="task-count" class="muted"></span>
+      </div>
+      <div id="active-tasks" class="task-list"></div>
+    </section>
+
+    <section class="panel" aria-label="Running agents">
+      <div class="panel-head">
+        <span class="panel-title">Running Agents</span>
+        <span id="agent-count" class="muted"></span>
+      </div>
+      <div id="running-agents" class="agent-list"></div>
+    </section>
+
+    <section class="panel span-2" aria-label="Recent activity">
+      <div class="panel-head">
+        <span class="panel-title">Recent Activity</span>
+        <button id="refresh-activity" class="ghost-btn" type="button">Refresh</button>
+      </div>
+      <div id="recent-activity" class="activity-list"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
