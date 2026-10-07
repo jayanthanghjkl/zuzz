@@ -187,6 +187,7 @@ class ActionCategory(str, Enum):
     MODIFY_PROJECT = "modify_project"
     GIT_OPERATIONS = "git_operations"
     INSTALL_PACKAGES = "install_packages"
+    DEPLOY_AGENTS = "deploy_agents"
 
     def __str__(self) -> str:
         """Return the config key for this category."""

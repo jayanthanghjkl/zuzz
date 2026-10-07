@@ -152,6 +152,7 @@ APPROVED_MATRIX: Dict[str, tuple] = {
     "modify_project": (ASK, ASK, AUTO, AUTO, AUTO),
     "git_operations": (ASK, ASK, ASK, ASK, AUTO),
     "install_packages": (ASK, ASK, ASK, ASK, ASK),
+    "deploy_agents": (ASK, ASK, ASK, AUTO, AUTO),
 }
 
 

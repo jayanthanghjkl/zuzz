@@ -718,6 +718,148 @@ TOOL_SCHEMAS: Tuple[Dict[str, Any], ...] = (
         },
         ("name",),
     ),
+    # Communication tools (Phase 8, the Communication Hub).
+    #
+    # Grouped last because these send data off the machine. The send_messages row
+    # in trust_levels.json asks at every level, so every tool here prompts below 5.
+    tool(
+        "telegram_send_message",
+        "Send a Telegram message to the configured chat.",
+        {
+            "message": string("The message text"),
+            "buttons": array_of_strings("Optional button labels"),
+            "chat_id": string("Optional chat ID override"),
+        },
+        ("message",),
+    ),
+    tool(
+        "telegram_send_file",
+        "Send a file via Telegram to the configured chat.",
+        {
+            "file_path": string("Absolute path to the file to send"),
+            "caption": string("Optional caption"),
+        },
+        ("file_path",),
+    ),
+    tool(
+        "telegram_request_approval",
+        "Send an approval request via Telegram and wait for a response.",
+        {
+            "action": string("What needs approval"),
+            "timeout_seconds": integer("How long to wait in seconds"),
+        },
+        ("action",),
+    ),
+    tool(
+        "email_send",
+        "Send an email via the configured SMTP account.",
+        {
+            "subject": string("Email subject"),
+            "body": string("Email body"),
+            "to": string("Optional recipient email address"),
+        },
+        ("subject", "body"),
+    ),
+    tool(
+        "email_schedule_briefing",
+        "Schedule a daily email briefing.",
+        {
+            "subject": string("Briefing subject line"),
+            "summary": string("One-line summary"),
+            "time": string("When to send, e.g. '08:00'"),
+        },
+        ("subject", "time"),
+    ),
+    tool(
+        "email_check_inbox",
+        "Check the configured email inbox for new messages.",
+        {
+            "limit": integer("Max messages to return"),
+        },
+    ),
+    tool(
+        "push_send_notification",
+        "Send a push notification via ntfy.",
+        {
+            "title": string("Notification title"),
+            "message": string("Notification body"),
+            "priority": enum("Priority level", "low", "normal", "high", "urgent"),
+        },
+        ("title", "message"),
+    ),
+    tool(
+        "push_set_quiet_hours",
+        "Set quiet hours when push notifications are suppressed.",
+        {
+            "start": string("Quiet hours start, e.g. 22:00"),
+            "end": string("Quiet hours end, e.g. 07:00"),
+        },
+        ("start", "end"),
+    ),
+    # Background agent tools (Phase 8, the Background Agents).
+    #
+    # deploy_agents asks below 4, where the user has not yet said they are happy
+    # for ZUZZ to spin up remote compute on their behalf. The remaining tools
+    # auto-approve from 3 because they read state or schedule work rather than
+    # create it.
+    tool(
+        "agent_deploy",
+        "Deploy a background cloud agent to Google Colab.",
+        {
+            "agent_type": string("Type of agent: email_monitor, price_watcher, research_agent, news_aggregator, system_monitor, or custom"),
+            "name": string("Human-readable name"),
+            "config": string("JSON config string"),
+        },
+        ("agent_type",),
+    ),
+    tool(
+        "agent_stop",
+        "Stop a running background agent.",
+        {
+            "agent_id": string("The agent to stop"),
+        },
+        ("agent_id",),
+    ),
+    tool(
+        "agent_list",
+        "List all deployed background agents.",
+        {},
+    ),
+    tool(
+        "agent_schedule",
+        "Schedule a background agent to run on a cron.",
+        {
+            "agent_id": string("The agent to schedule"),
+            "cron_expression": string("Cron expression, e.g. */15 * * * *"),
+        },
+        ("agent_id",),
+    ),
+    tool(
+        "agent_get_results",
+        "Get the latest results from a background agent.",
+        {
+            "agent_id": string("The agent to fetch results from"),
+        },
+        ("agent_id",),
+    ),
+    tool(
+        "agent_create_custom",
+        "Create a custom background agent from Python code.",
+        {
+            "name": string("Agent name"),
+            "code": string("Python source code for the agent"),
+            "config": string("Optional JSON config string"),
+        },
+        ("name", "code"),
+    ),
+    tool(
+        "agent_sync_now",
+        "Sync results from a remote background agent immediately.",
+        {
+            "agent_id": string("The agent to sync"),
+        },
+        ("agent_id",),
+    ),
 )
 
 _BY_NAME: Dict[str, Dict[str, Any]] = {

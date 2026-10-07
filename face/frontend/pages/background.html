@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Background Agents</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/background.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Background Agents</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <span id="kill-badge" class="badge badge-ok" title="Emergency stop">running</span>
+      <a class="ghost-btn tab-link" href="/pages/communication.html" title="Communication">Communication</a>
+      <a class="ghost-btn tab-link" href="/" title="Back to chat">Chat</a>
+      <button id="stop-btn" class="stop-btn" type="button" title="Emergency stop">Stop</button>
+    </div>
+  </header>
+
+  <main class="bg-layout">
+    <section class="bg-panel" aria-label="Deploy agent">
+      <div class="panel-head">
+        <span class="panel-title">Deploy Agent</span>
+      </div>
+      <div class="deploy-form">
+        <select id="agent-type">
+          <option value="email_monitor">Email Monitor</option>
+          <option value="price_watcher">Price Watcher</option>
+          <option value="research_agent">Research Agent</option>
+          <option value="news_aggregator">News Aggregator</option>
+          <option value="system_monitor">System Monitor</option>
+          <option value="custom">Custom</option>
+        </select>
+        <input id="agent-name" placeholder="Agent name" />
+        <textarea id="agent-code" placeholder="Custom agent code (Python)..." rows="4" class="hidden"></textarea>
+        <button id="deploy-btn" class="primary-btn" type="button">Deploy</button>
+      </div>
+      <div id="deploy-result" class="result-box hidden"></div>
+    </section>
+
+    <section class="bg-panel" aria-label="Agent list">
+      <div class="panel-head">
+        <span class="panel-title">Deployed Agents</span>
+        <button id="refresh-agents" class="ghost-btn" type="button">Refresh</button>
+      </div>
+      <div id="agent-list" class="agent-list">
+        <p class="muted">No agents deployed yet.</p>
+      </div>
+    </section>
+
+    <section class="bg-panel" aria-label="Agent details">
+      <div class="panel-head">
+        <span class="panel-title">Agent Details</span>
+      </div>
+      <div id="agent-details" class="agent-details">
+        <p class="muted">Select an agent to view details.</p>
+      </div>
+    </section>
+
+    <section class="bg-panel" aria-label="Schedule">
+      <div class="panel-head">
+        <span class="panel-title">Schedule Agent</span>
+      </div>
+      <div class="schedule-form">
+        <input id="schedule-agent-id" placeholder="Agent ID" />
+        <input id="cron-expression" placeholder="Cron, e.g. */15 * * * *" />
+        <button id="schedule-btn" class="ghost-btn" type="button">Schedule</button>
+      </div>
+      <div id="schedule-result" class="result-box hidden"></div>
+    </section>
+  </main>
+
+  <script src="/static/js/background.js"></script>
+</body>
+</html>

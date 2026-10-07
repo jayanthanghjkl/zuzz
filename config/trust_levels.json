@@ -185,7 +185,8 @@
     "execute_code":         {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "auto"},
     "modify_project":       {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
     "git_operations":       {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "auto"},
-    "install_packages":     {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"}
+    "install_packages":     {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
+    "deploy_agents":        {"1": "ask",     "2": "ask",     "3": "ask",     "4": "auto",    "5": "auto"}
   },
   "policy": {
     "default_trust_level": 1,

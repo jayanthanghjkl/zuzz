@@ -711,6 +711,23 @@ KILO_TOOL_NAMES = (
 
 NEW_TOOL_NAMES = (
     VISION_TOOL_NAMES + BROWSER_TOOL_NAMES + PARIETAL_TOOL_NAMES + KILO_TOOL_NAMES
+    + (
+        "telegram_send_message",
+        "telegram_send_file",
+        "telegram_request_approval",
+        "email_send",
+        "email_schedule_briefing",
+        "email_check_inbox",
+        "push_send_notification",
+        "push_set_quiet_hours",
+        "agent_deploy",
+        "agent_stop",
+        "agent_list",
+        "agent_schedule",
+        "agent_get_results",
+        "agent_create_custom",
+        "agent_sync_now",
+    )
 )
 
 
@@ -723,9 +740,10 @@ def test_all_64_tools_registered_and_callable() -> None:
     cannot reach, and an implementation with no schema is a capability no model
     can ask for. Either one is a bug that no single route test would surface.
 
-    Sixty-four rather than fifteen since Session 13: five vision tools, fifteen
+    Sixty-four plus fifteen since Session 13: five vision tools, fifteen
     browser tools, six system-awareness tools, five memory, five routine and three
-    personality tools from Phase 6, and ten ``kilo_*`` coding tools. Session 13
+    personality tools from Phase 6, and ten kilo_* coding tools, plus fifteen
+    Phase 8 communication and background agent tools. Session 13
     established that a count is not the claim being made — the twenty it added were
     registered and unreachable — so the reachability half of this test is the part
     that matters, and the count is only here to make a deletion fail loudly.
@@ -733,14 +751,14 @@ def test_all_64_tools_registered_and_callable() -> None:
     from brain.cerebrum.tool_catalogue import TOOL_NAMES
     from body.tools import ToolContext, catalogue_mismatches
 
-    assert len(TOOL_NAMES) == 64, TOOL_NAMES
+    assert len(TOOL_NAMES) == 79, TOOL_NAMES
     assert catalogue_mismatches() == []
 
-    # The thirty-six tools added since Session 12 are present *by name*. A count
+    # The fifty-one tools added since Session 12 are present *by name*. A count
     # would pass on a typo, and a typo is exactly the failure mode this catalogue
     # keeps hitting: a schema entry the registry cannot resolve is a hand the model
     # was promised and never got.
-    assert len(NEW_TOOL_NAMES) == 36, NEW_TOOL_NAMES
+    assert len(NEW_TOOL_NAMES) == 51, NEW_TOOL_NAMES
     for name in (
         "vision_capture_screen", "browser_navigate", "parietal_detect_context",
         "kilo_generate_code", "kilo_apply_changes",
@@ -847,6 +865,21 @@ def test_all_64_tools_registered_and_callable() -> None:
         "kilo_rollback": {"diff_id": "no-such-diff"},
         "kilo_git_status": {},
         "kilo_install_package": {"name": "a-package-that-does-not-exist"},
+        "telegram_send_message": {"message": "hello"},
+        "telegram_send_file": {"file_path": "/tmp/test.txt"},
+        "telegram_request_approval": {"action": "deploy agent"},
+        "email_send": {"subject": "test", "body": "hello"},
+        "email_schedule_briefing": {"subject": "briefing", "time": "08:00"},
+        "email_check_inbox": {},
+        "push_send_notification": {"title": "alert", "message": "test"},
+        "push_set_quiet_hours": {"start": "22:00", "end": "07:00"},
+        "agent_deploy": {"agent_type": "email_monitor", "name": "Test"},
+        "agent_stop": {"agent_id": "a1"},
+        "agent_list": {},
+        "agent_schedule": {"agent_id": "a1", "cron_expression": "* * * * *"},
+        "agent_get_results": {"agent_id": "a1"},
+        "agent_create_custom": {"name": "Custom", "code": "print(1)"},
+        "agent_sync_now": {"agent_id": "a1"},
     }
     assert set(samples) == set(TOOL_NAMES)
 

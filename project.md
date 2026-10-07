@@ -1113,6 +1113,21 @@ names the account literally and carries the resolved path `C:\Users\jayan`.
 * [ ] Download remaining local models (Qwen 1.5B, 3B)
 * [ ] Colab cloud brain — offline, awaiting Jayanthan's notebook restart (tunnel URL unchanged)
 
+### Phase 8 Status
+
+Code-complete 2026-10-07.
+
+* **Communication Hub**: Telegram, Email (SMTP), ntfy push notifications, escalation chain, response tracker, notification formatter.
+* **Background Agents**: agent registry, deployment handler, Colab bridge, cron scheduler, GitHub Actions keep-alive, sync handler, agent manager orchestrator.
+* **Agent Templates**: email_monitor, price_watcher, research_agent, news_aggregator, system_monitor in `brain/background_agents/templates/`.
+* **API Routes**: `routes_communication.py` (6 endpoints) and `routes_background.py` (7 endpoints).
+* **Frontend**: Communication and Background Agents pages with status widgets, deploy forms, schedule management.
+* **15 New Tools**: telegram_send_message, telegram_send_file, telegram_request_approval, email_send, email_schedule_briefing, email_check_inbox, push_send_notification, push_set_quiet_hours, agent_deploy, agent_stop, agent_list, agent_schedule, agent_get_results, agent_create_custom, agent_sync_now.
+* **Tests**: 18 new tests in `tests/test_telegram.py`, `tests/test_email.py`, `tests/test_background_agents.py` — all passing.
+* **Trust Matrix**: `deploy_agents` added (`ask` at 1-3, `auto` at 4-5). `send_messages` already `ask` at all levels.
+
+**Verified**: all 1478 tests pass. ZUZZ works 24/7 via background cloud agents.
+
 ### Phase 9 Status
 
 Code-complete 2026-10-07.

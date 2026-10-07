@@ -20,7 +20,9 @@ from brain.cerebrum.tools_schema import schema_for
 from body.tools.app_tools import APP_TOOLS
 from body.tools.browser_tools import BROWSER_TOOLS
 from body.tools.clipboard_tools import CLIPBOARD_TOOLS
+from body.tools.background_agent_tools import BACKGROUND_AGENT_TOOLS
 from body.tools.code_tools import CODE_TOOLS
+from body.tools.communication_tools import COMMUNICATION_TOOLS
 from body.tools.file_tools import FILE_TOOLS
 from body.tools.keyboard_tools import KEYBOARD_TOOLS
 from body.tools.memory_tools import MEMORY_TOOLS
@@ -126,5 +128,7 @@ def get_registry() -> ToolRegistry:
             + ROUTINE_TOOLS
             + PERSONALITY_TOOLS
             + CODE_TOOLS
+            + COMMUNICATION_TOOLS
+            + BACKGROUND_AGENT_TOOLS
         )
     return _REGISTRY

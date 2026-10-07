@@ -336,13 +336,10 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     app.state.basal_ganglia = BasalGanglia(
         gate=app.state.permission_gate,
         trust=app.state.trust,
-        # Planning a routine resolves every step's tool, and most tools check that
-        # the collaborator they need is attached. Resolved against an empty context
-        # that check reads "not attached" for everything, so a routine containing a
-        # perfectly good step would be reported unresolvable. Built per call rather
-        # than captured once, so a region attached after startup is visible.
         tool_context=lambda: ChatActionRunner(app.state).tool_context(),
     )
+    app.state.communication_hub = CommunicationHub()
+    app.state.agent_manager = AgentManager()
     # Shipped routines are added on first run, and never over a routine the user
     # has since edited or deleted. Their file wins either way.
     app.state.basal_ganglia.seed()
@@ -370,6 +367,8 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     app.include_router(routes_personality.router)
     app.include_router(routes_parietal.router)
     app.include_router(routes_code.router)
+    app.include_router(routes_communication.router)
+    app.include_router(routes_background.router)
     app.include_router(routes_dashboard.router)
 
     if STATIC_DIR.is_dir():

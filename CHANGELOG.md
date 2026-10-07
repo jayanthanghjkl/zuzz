@@ -6,6 +6,35 @@
 # 📋 ZUZZ Changelog
 This file is automatically updated by the AI assistant. It tracks every change made to the project.
 
+## [2026-10-07] Phase 8 — Background Cloud Agents + External Communication
+
+### Added
+- **Communication Hub**: Telegram bot integration, SMTP email, ntfy push notifications, escalation chain (web -> telegram -> email), response tracker, notification formatter.
+- **Background Agents**: Agent registry, deployment handler for Google Colab, Colab bridge, cron scheduler, GitHub Actions keep-alive, sync handler, agent manager orchestrator.
+- **Agent Templates**: email_monitor.py, price_watcher.py, research_agent.py, news_aggregator.py, system_monitor.py in `brain/background_agents/templates/`.
+- **API Routes**: `face/api/routes_communication.py` (6 endpoints) and `face/api/routes_background.py` (7 endpoints).
+- **Frontend**: `communication.html` and `background.html` with CSS and JS modules.
+- **15 New Tools**: `telegram_send_message`, `telegram_send_file`, `telegram_request_approval`, `email_send`, `email_schedule_briefing`, `email_check_inbox`, `push_send_notification`, `push_set_quiet_hours`, `agent_deploy`, `agent_stop`, `agent_list`, `agent_schedule`, `agent_get_results`, `agent_create_custom`, `agent_sync_now`.
+- **Tests**: `tests/test_telegram.py`, `tests/test_email.py`, `tests/test_background_agents.py` — 18 new tests, all passing.
+
+### Changed
+- `brain/cerebrum/tools_schema.py` expanded from 64 to 79 tools.
+- `brain/prefrontal_cortex/action.py` added `DEPLOY_AGENTS` category.
+- `config/trust_levels.json` added `deploy_agents` row.
+- `body/tools/registry.py` registered 15 new communication and background agent tools.
+- `face/api/server.py` mounted `routes_communication` and `routes_background`, attached `communication_hub` and `agent_manager` to app state.
+
+### Fixed
+- None.
+
+### Notes
+- All 1478 tests pass, 2 skipped.
+- ZUZZ works 24/7 via background cloud agents even when laptop is off.
+
+### Next Steps
+- Wire real Telegram/email credentials in `.env`.
+- Deploy example agents to Google Colab.
+
 ## [2026-10-07] Phase 9 — Complete Dashboard, Polish, Production Readiness
 
 ### Added

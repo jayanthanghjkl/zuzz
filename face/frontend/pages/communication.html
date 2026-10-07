@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZUZZ — Communication</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/communication.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">&#9679;</span>
+      <div>
+        <h1>ZUZZ</h1>
+        <span class="tagline">Communication</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <span id="kill-badge" class="badge badge-ok" title="Emergency stop">running</span>
+      <a class="ghost-btn tab-link" href="/pages/background.html" title="Background agents">Agents</a>
+      <a class="ghost-btn tab-link" href="/" title="Back to chat">Chat</a>
+      <button id="stop-btn" class="stop-btn" type="button" title="Emergency stop">Stop</button>
+    </div>
+  </header>
+
+  <main class="comm-layout">
+    <section class="comm-panel" aria-label="Channel status">
+      <div class="panel-head">
+        <span class="panel-title">Channels</span>
+        <button id="refresh-status" class="ghost-btn" type="button">Refresh</button>
+      </div>
+      <div id="channels" class="channel-list">
+        <div class="channel-card" data-channel="telegram">
+          <strong>Telegram</strong>
+          <span id="telegram-status" class="muted">checking...</span>
+        </div>
+        <div class="channel-card" data-channel="email">
+          <strong>Email</strong>
+          <span id="email-status" class="muted">checking...</span>
+        </div>
+        <div class="channel-card" data-channel="push">
+          <strong>Push</strong>
+          <span id="push-status" class="muted">checking...</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="comm-panel" aria-label="Send message">
+      <div class="panel-head">
+        <span class="panel-title">Send Message</span>
+      </div>
+      <div class="send-form">
+        <select id="send-channel">
+          <option value="auto">Auto</option>
+          <option value="telegram">Telegram</option>
+          <option value="email">Email</option>
+          <option value="push">Push</option>
+        </select>
+        <textarea id="send-message" placeholder="Type your message..." rows="3"></textarea>
+        <button id="send-btn" class="primary-btn" type="button">Send</button>
+      </div>
+      <div id="send-result" class="result-box hidden"></div>
+    </section>
+
+    <section class="comm-panel" aria-label="Escalation">
+      <div class="panel-head">
+        <span class="panel-title">Escalation Chain</span>
+      </div>
+      <div class="escalation-form">
+        <textarea id="escalate-message" placeholder="Message to escalate..." rows="2"></textarea>
+        <select id="escalate-channel">
+          <option value="web">Web</option>
+          <option value="telegram">Telegram</option>
+          <option value="email">Email</option>
+          <option value="push">Push</option>
+        </select>
+        <button id="escalate-btn" class="ghost-btn" type="button">Escalate</button>
+      </div>
+      <div id="escalate-result" class="result-box hidden"></div>
+    </section>
+
+    <section class="comm-panel" aria-label="Preferences">
+      <div class="panel-head">
+        <span class="panel-title">Preferences</span>
+      </div>
+      <div class="prefs-form">
+        <label>Quiet hours start <input id="quiet-start" type="text" placeholder="22:00" /></label>
+        <label>Quiet hours end <input id="quiet-end" type="text" placeholder="07:00" /></label>
+        <button id="save-prefs" class="ghost-btn" type="button">Save</button>
+      </div>
+      <div id="prefs-result" class="result-box hidden"></div>
+    </section>
+  </main>
+
+  <script src="/static/js/communication.js"></script>
+</body>
+</html>
