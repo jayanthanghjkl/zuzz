@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZUZZ Voice Interface</title>
+    <link rel="stylesheet" href="/static/css/voice.css">
+</head>
+<body>
+    <div class="voice-container">
+        <header class="voice-header">
+            <h1>ZUZZ Voice</h1>
+            <div class="status-indicators">
+                <span id="wakeWordStatus" class="status-badge inactive">Wake Word: Off</span>
+                <span id="listeningStatus" class="status-badge inactive">Listening: Off</span>
+                <span id="speakingStatus" class="status-badge inactive">Speaking: Off</span>
+            </div>
+        </header>
+
+        <main class="voice-main">
+            <section class="voice-controls">
+                <div class="control-group">
+                    <h2>Microphone</h2>
+                    <button id="micButton" class="mic-button" aria-label="Start listening">
+                        <svg class="mic-icon" viewBox="0 0 24 24" width="48" height="48">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5.1c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.6z"/>
+                        </svg>
+                        <svg class="mic-icon listening" viewBox="0 0 24 24" width="48" height="48" style="display:none;">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5.1c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.6z"/>
+                            <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </button>
+                    <p id="micStatus" class="control-status">Click to start listening</p>
+                </div>
+
+                <div class="control-group">
+                    <h2>Volume Meter</h2>
+                    <div class="volume-meter">
+                        <div id="volumeBar" class="volume-bar"></div>
+                    </div>
+                    <p id="volumeStatus" class="control-status">Waiting for input...</p>
+                </div>
+
+                <div class="control-group">
+                    <h2>Wake Word</h2>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="wakeWordToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <p id="wakeWordStatusText" class="control-status">Wake word disabled</p>
+                </div>
+
+                <div class="control-group">
+                    <h2>Voice Selection</h2>
+                    <select id="voiceSelect" class="voice-select">
+                        <option value="">Loading voices...</option>
+                    </select>
+                    <p id="voiceStatus" class="control-status">Select a voice</p>
+                </div>
+
+                <div class="control-group">
+                    <h2>Emotion Tone</h2>
+                    <select id="emotionSelect" class="emotion-select">
+                        <option value="neutral">Neutral</option>
+                        <option value="happy">Happy</option>
+                        <option value="sad">Sad</option>
+                        <option value="angry">Angry</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="calm">Calm</option>
+                        <option value="excited">Excited</option>
+                        <option value="whisper">Whisper</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="voice-transcription">
+                <h2>Live Transcription</h2>
+                <div id="transcriptionDisplay" class="transcription-display">
+                    <p class="placeholder">Transcription will appear here...</p>
+                </div>
+                <div id="partialTranscription" class="partial-transcription"></div>
+            </section>
+
+            <section class="voice-history">
+                <h2>Audio History</h2>
+                <ul id="historyList" class="history-list">
+                    <li class="history-empty">No interactions yet</li>
+                </ul>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/js/voice.js"></script>
+</body>
+</html>

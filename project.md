@@ -1091,7 +1091,7 @@ names the account literally and carries the resolved path `C:\Users\jayan`.
 
 ### Overall Progress
 
-**~100% complete.** ZUZZ is feature-complete and production-ready.
+**~90% complete.** ZUZZ is now hands-free with full voice interaction (Phase 5). Phase 6 (Hippocampus memory), Phase 7 (Cerebellum personality), Phase 8 (Communication + Background Agents), Phase 9 (Dashboard + Polish) are code-complete. Phase 10 (Phone calls) deferred.
 
 ### Not Started
 
@@ -1112,6 +1112,23 @@ names the account literally and carries the resolved path `C:\Users\jayan`.
       verified, 11 REST routes responding
 * [ ] Download remaining local models (Qwen 1.5B, 3B)
 * [ ] Colab cloud brain — offline, awaiting Jayanthan's notebook restart (tunnel URL unchanged)
+
+### Phase 5 Status
+
+Code-complete 2026-10-07.
+
+* **Temporal Lobe (STT)**: Whisper Tiny engine, audio capture, streaming transcription, noise detection.
+* **Broca's Area (TTS)**: Piper/Edge TTS engine, voice selection, emotion tone control, streaming speech.
+* **Wernicke's Area (Language Comprehension)**: Intent parser, context resolver, ambiguity detector.
+* **Reticular Formation (Attention + Wake Word)**: Porcupine wake word detection, attention manager, idle detector, interrupt handler.
+* **Body Ears**: Microphone access, audio streaming, VAD.
+* **Body Voice**: Speaker playback, audio mixer, LiveKit WebRTC bridge.
+* **API Routes**: `routes_voice.py` with 10 REST endpoints + WebSocket for real-time streaming.
+* **Frontend**: Voice page with mic button, volume meter, wake word toggle, voice selector, live transcription, audio history.
+* **10 New Voice Tools**: voice_start_listening, voice_stop_listening, voice_speak, voice_stop_speaking, voice_transcribe_file, voice_set_voice, voice_set_emotion, voice_enable_wake_word, voice_disable_wake_word, voice_get_status.
+* **Tests**: 55 new tests in `tests/test_voice_input.py`, `tests/test_voice_output.py`, `tests/test_wake_word.py` — all passing.
+* **Trust Matrix**: voice_input (ask/ask/auto/auto/auto), voice_output (auto/auto/auto/auto/auto), wake_word_control (ask/ask/auto/auto/auto).
+* **ZUZZ is now hands-free** with wake word "Hey ZUZZ".
 
 ### Phase 8 Status
 

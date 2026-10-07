@@ -860,6 +860,83 @@ TOOL_SCHEMAS: Tuple[Dict[str, Any], ...] = (
         },
         ("agent_id",),
     ),
+    # Voice tools (Phase 5 — Voice Interaction).
+    #
+    # Grouped last as a new capability family. voice_input and wake_word_control
+    # ask at trust levels 1-2; voice_output auto-approves because it only speaks.
+    tool(
+        "voice_start_listening",
+        "Begin voice input mode. Captures microphone audio and streams transcription.",
+        {
+            "language": string("Optional language code, e.g. en, es, fr"),
+            "vad_enabled": enum("Enable voice activity detection", "true", "false"),
+        },
+    ),
+    tool(
+        "voice_stop_listening",
+        "End voice input mode and return final transcription.",
+        {
+            "session_id": string("Session ID from voice_start_listening"),
+        },
+        ("session_id",),
+    ),
+    tool(
+        "voice_speak",
+        "Convert text to speech and play it.",
+        {
+            "text": string("Text to speak"),
+            "emotion": enum("Emotional tone", "neutral", "happy", "sad", "angry", "urgent", "calm", "excited", "whisper"),
+            "voice_id": string("Optional voice ID to use"),
+        },
+        ("text",),
+    ),
+    tool(
+        "voice_stop_speaking",
+        "Interrupt current speech output immediately.",
+        {},
+    ),
+    tool(
+        "voice_transcribe_file",
+        "Transcribe an audio file to text using Whisper.",
+        {
+            "file_path": string("Path to audio file"),
+            "language": string("Optional language code"),
+        },
+        ("file_path",),
+    ),
+    tool(
+        "voice_set_voice",
+        "Change the active TTS voice.",
+        {
+            "voice_id": string("Voice ID from voice_get_status available_voices"),
+        },
+        ("voice_id",),
+    ),
+    tool(
+        "voice_set_emotion",
+        "Set default emotional tone for TTS output.",
+        {
+            "emotion": enum("Emotional tone", "neutral", "happy", "sad", "angry", "urgent", "calm", "excited", "whisper"),
+        },
+        ("emotion",),
+    ),
+    tool(
+        "voice_enable_wake_word",
+        "Enable wake word detection (e.g. 'Hey ZUZZ').",
+        {
+            "keywords": array_of_strings("Wake words to listen for"),
+        },
+    ),
+    tool(
+        "voice_disable_wake_word",
+        "Disable wake word detection.",
+        {},
+    ),
+    tool(
+        "voice_get_status",
+        "Get current voice system state: listening, speaking, wake word, available voices.",
+        {},
+    ),
 )
 
 _BY_NAME: Dict[str, Dict[str, Any]] = {

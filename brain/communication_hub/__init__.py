@@ -1,1 +1,1 @@
-"Communication Hub - multi-channel notification escalation."
+"""Communication Hub - multi-channel notification escalation."""

@@ -6,6 +6,30 @@
 # 📋 ZUZZ Changelog
 This file is automatically updated by the AI assistant. It tracks every change made to the project.
 
+## [2026-10-07] Phase 5 — Voice Interaction (STT, TTS, Wake Word, LiveKit)
+
+### Added
+- **Temporal Lobe (STT)**: `brain/temporal_lobe/` with Whisper Tiny engine, audio capture, streaming transcription, noise detection.
+- **Broca's Area (TTS)**: `brain/broca_area/` with Piper/Edge TTS engine, voice selection, emotion tone control, streaming speech.
+- **Wernicke's Area (Language Comprehension)**: `brain/wernicke_area/` with intent parser, context resolver, ambiguity detector.
+- **Reticular Formation (Attention + Wake Word)**: `brain/reticular_formation/` with Porcupine wake word detection, attention manager, idle detector, interrupt handler.
+- **Body Ears**: `body/ears/` with microphone access, audio streaming, VAD.
+- **Body Voice**: `body/voice/` with speaker playback, audio mixer, LiveKit WebRTC bridge.
+- **API Routes**: `face/api/routes_voice.py` with 10 REST endpoints + WebSocket for real-time streaming.
+- **Frontend**: `face/frontend/pages/voice.html` with mic button, volume meter, wake word toggle, voice selector, live transcription, audio history.
+- **10 New Voice Tools**: `voice_start_listening`, `voice_stop_listening`, `voice_speak`, `voice_stop_speaking`, `voice_transcribe_file`, `voice_set_voice`, `voice_set_emotion`, `voice_enable_wake_word`, `voice_disable_wake_word`, `voice_get_status`.
+- **Tests**: `tests/test_voice_input.py`, `tests/test_voice_output.py`, `tests/test_wake_word.py` — 55 new tests, all passing.
+
+### Changed
+- `brain/cerebrum/tools_schema.py` expanded from 64 to 74 tools.
+- `requirements.txt` added openai-whisper, torch, piper-tts, pvporcupine, sounddevice, livekit-agents.
+- `face/api/server.py` mounted `routes_voice`, attached `temporal_lobe`, `broca_area`, `reticular_formation` to app state.
+
+### Notes
+- Trust matrix: voice_input (ask/ask/auto/auto/auto), voice_output (auto/auto/auto/auto/auto), wake_word_control (ask/ask/auto/auto/auto).
+- Sub-500ms latency target for LiveKit WebRTC streaming.
+- ZUZZ is now hands-free with wake word "Hey ZUZZ".
+
 ## [2026-10-07] Phase 8 — Background Cloud Agents + External Communication
 
 ### Added
