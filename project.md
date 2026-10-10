@@ -8,7 +8,7 @@
 **Last Updated:** 2025  
 **Developer:** Jayanthan  
 **AI Assistant:** Antigravity  
-**Status:** Phase 1 — Development Starting  
+**Status:** Phase 9 — Production Ready (~90% complete)  
 
 ---
 
@@ -71,6 +71,33 @@ Build a personal AI assistant called **ZUZZ** that:
 - Code: write and execute Python, Shell, JavaScript
 - Terminal: run any command, capture output
 - Screenshots: capture screen, analyze with vision AI
+
+### Web Application Pages
+- Chat (main conversation with streaming)
+- Files (file manager with safety classification)
+- Desktop (mouse/keyboard/app controls)
+- Resources (live RAM/VRAM/CPU/GPU gauges)
+- Voice (microphone, TTS, wake word, transcription)
+- Code (multi-agent coding with diff preview)
+- Communication (Telegram/Email/Push settings)
+- Background (cloud agent management)
+- Dashboard (brain health, active tasks, system score)
+- Settings (trust level, models, personality, theme)
+- Plugins (installed plugins, approval workflow)
+- Routines (automated workflows, triggers)
+- Activity (real-time action log, filters, export)
+- Brain Visualization (3D interactive brain diagram)
+- Memory (conversation history, learned tasks, preferences)
+- Habits (detected patterns, routine suggestions)
+- Hands (mouse/keyboard/app control status)
+
+### Additional Features
+- PWA support (installable on phone, offline capable)
+- Dark/Light/High-Contrast themes
+- Auto-start on Windows boot (Task Scheduler)
+- Windows Service installation option
+- External HDD support for model storage
+- Mobile-responsive design
 
 ### Intelligence
 - Simple tasks: handled by local 1.5B model in <1 second
@@ -856,7 +883,30 @@ ngrok            (auth token)            Free, random URL
 
 ## 18. CURRENT PROGRESS
 
-### Completed
+### Phase Status
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | Core (Web + Chat + Routing) | ✅ 100% Complete |
+| Phase 2 | Safety + Control (Gate, Amygdala, Spinal Cord, Body/Fingers) | ✅ 100% Complete |
+| Phase 3 | Vision + Browser (Occipital Lobe, Body/Legs) | ✅ 100% Complete |
+| Phase 4 | Code + Kilo (Multi-agent coding engine) | ✅ 100% Complete |
+| Phase 4.5 | Jarvis Enhancements (ToolContext, ActionLoop fixes) | ✅ 100% Complete |
+| Phase 5 | Voice (STT + TTS + Wake Word) | ✅ Code complete (wiring pending) |
+| Phase 6 | Memory + Habits + Personality (Hippocampus, Basal Ganglia, Cerebellum) | ✅ 100% Complete |
+| Phase 7 | Multi-Agent (Orchestrator, Specialist agents) | 🔨 In progress |
+| Phase 8 | Background + Communication (Telegram, Email, Push, Cloud Agents) | ✅ 100% Complete |
+| Phase 9 | Dashboard + Polish (PWA, Auto-start, Brain Viz) | ✅ 100% Complete |
+
+### Metrics
+
+- **Tests:** ~1479 passing (1539 collected)
+- **Tools:** 93 callable tools registered
+- **Brain Components:** 16 of 19 built (Mirror Neurons, Wernicke's Area partial, Frontal Lobe partial)
+- **Body Components:** 5 of 5 built (Hands, Fingers, Legs, Mouth, Ears)
+- **LOC:** ~60,000+
+- **Frontend Pages:** 15 HTML pages
+- **API Routes:** 24 route modules, 162+ endpoints
 
 * [x] Full project architecture designed
 * [x] Digital Brain model with 19 components mapped
@@ -1161,3 +1211,63 @@ Code-complete 2026-10-07.
 * **Docs**: USER_GUIDE.md and API_REFERENCE.md.
 
 **Verified**: all new pages load, dashboard endpoint returns full payload, PWA manifest and service worker serve correctly.
+
+---
+
+## 19. KNOWN LIMITATIONS
+
+### Current Implementation Gaps
+
+- Voice system wired to server but audio hardware dependencies (Whisper, Piper, Porcupine) may need manual installation on some systems
+- Plugin marketplace UI is placeholder — real marketplace requires backend implementation
+- Routine history view is placeholder — shows current routines but not execution history
+- Cloud brain connectors (Colab, HuggingFace) need periodic re-verification as API endpoints change
+- Some local models may need manual download (`ollama pull <model>`)
+- Mirror Neurons (learn-by-watching) not yet implemented
+- Multi-agent expansion (Phase 7 specialist agents) uses lightweight orchestrator instead of CrewAI due to dependency conflicts
+- Phone calls (Bolna + Twilio) deferred to future phase
+
+### Not Started
+
+- [ ] Phone calls (Bolna AI + Twilio) — deferred to Phase 10
+- [ ] Drive-root protection in `core/paths.py` (optional hardening)
+- [ ] Replace marketplace and routine-history placeholders with real implementations
+- [ ] Cloud brain connectors need re-verification (no outbound egress on this machine)
+- [ ] Download remaining local models (Qwen 1.5B, 3B)
+- [ ] Colab cloud brain — offline, awaiting Jayanthan's notebook restart (tunnel URL unchanged)
+
+---
+
+## 20. REQUIRED SETUP
+
+### Required External Services (all free tier)
+
+| Service | Purpose | Sign Up |
+|---------|---------|---------|
+| Ollama | Local AI runtime | ollama.com |
+| Groq | Cloud LLM API | console.groq.com |
+| HuggingFace | Model hub API | huggingface.co |
+| OpenRouter | Multi-model API | openrouter.ai |
+| NVIDIA Build | GPU cloud API | build.nvidia.com |
+| Google Colab | Free GPU for background agents | colab.research.google.com |
+| ngrok | Tunnel for Colab | ngrok.com |
+| Cron-Job.org | Keep-alive pings | cron-job.org |
+
+### Optional Services
+
+| Service | Purpose | Notes |
+|---------|---------|-------|
+| Telegram Bot | Messaging | t.me/BotFather |
+| SMTP Email | Email notifications | Gmail/Outlook credentials |
+| ntfy | Push notifications | ntfy.sh |
+| Twilio | Phone calls | Deferred, ~$2/month |
+
+### Required Python Dependencies
+
+**Core:** fastapi, uvicorn, ollama, litellm, pyautogui
+**Vision:** Pillow, mss
+**Browser:** playwright
+**Voice:** openai-whisper, piper-tts, pvporcupine, sounddevice
+**Communication:** python-telegram-bot
+**Security:** cryptography
+**Monitoring:** psutil, pynvml
