@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel
-from typing: Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 import logging
 import asyncio
 import json
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,26 @@ router = APIRouter(prefix="/api/voice", tags=["voice"])
 temporal_lobe = None
 broca_area = None
 reticular_formation = None
+
+
+def check_command_exists(cmd: str) -> bool:
+    return shutil.which(cmd) is not None
+
+
+def get_tts_engine_status() -> str:
+    if check_command_exists("piper"):
+        return "piper"
+    if check_command_exists("edge-tts") or check_command_exists("edge_tts"):
+        return "edge"
+    return "offline"
+
+
+def get_whisper_model_status() -> str:
+    try:
+        import whisper
+        return "tiny"
+    except ImportError:
+        return "unavailable"
 
 
 class ListenStartRequest(BaseModel):
@@ -80,8 +101,17 @@ async def stop_listening(session_id: str) -> Dict[str, Any]:
 
 @router.post("/speak")
 async def speak(request: SpeakRequest) -> Dict[str, Any]:
-    """Convert text to speech."""
+    """Convert text to speech with graceful degradation for offline TTS."""
     try:
+        # Check if TTS engine is available
+        tts_engine = get_tts_engine_status()
+        if tts_engine == "offline":
+            return {
+                "status": "tts_unavailable",
+                "message": "TTS engine (Piper/Edge) not detected on system",
+                "text": request.text,
+            }
+
         if not broca_area:
             raise HTTPException(status_code=503, detail="Broca's area not initialized")
 
@@ -96,6 +126,8 @@ async def speak(request: SpeakRequest) -> Dict[str, Any]:
         )
 
         return {"audio_file": audio_file, "status": "spoken"}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Speak failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -117,25 +149,47 @@ async def interrupt_speaking() -> Dict[str, Any]:
 
 @router.get("/status")
 async def get_status() -> Dict[str, Any]:
-    """Get voice system status."""
+    """Get voice system status with graceful degradation for offline components."""
     try:
         status = {}
 
+        # Listening status
         if temporal_lobe:
             status["listening"] = {
                 "active_sessions": temporal_lobe.get_active_sessions(),
             }
+        else:
+            status["listening"] = False
 
+        # Speaking status
         if broca_area:
             status["speaking"] = broca_area.get_status()
+        else:
+            status["speaking"] = False
 
+        # Wake word status
         if reticular_formation:
             status["wake_word"] = reticular_formation.get_status()
+        else:
+            status["wake_word"] = False
+
+        # TTS engine status
+        status["tts_engine"] = get_tts_engine_status()
+
+        # Whisper model status
+        status["whisper_model"] = get_whisper_model_status()
 
         return status
     except Exception as e:
         logger.error(f"Get status failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Return degraded status instead of 500
+        return {
+            "listening": False,
+            "speaking": False,
+            "wake_word": False,
+            "tts_engine": "offline",
+            "whisper_model": "unavailable",
+        }
 
 
 @router.post("/wake-word/enable")
