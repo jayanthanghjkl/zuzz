@@ -9,7 +9,13 @@
 <body>
     <div class="voice-container">
         <header class="voice-header">
-            <h1>ZUZZ Voice</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <h1>ZUZZ Voice</h1>
+                <div class="nav-links" style="display: flex; gap: 8px;">
+                    <a class="ghost-btn tab-link" href="/" style="color: #94a3b8; text-decoration: none; padding: 6px 12px; border: 1px solid #334155; border-radius: 6px; font-size: 13px;">Chat</a>
+                    <a class="ghost-btn tab-link" href="/pages/dashboard.html" style="color: #94a3b8; text-decoration: none; padding: 6px 12px; border: 1px solid #334155; border-radius: 6px; font-size: 13px;">Dashboard</a>
+                </div>
+            </div>
             <div class="status-indicators">
                 <span id="wakeWordStatus" class="status-badge inactive">Wake Word: Off</span>
                 <span id="listeningStatus" class="status-badge inactive">Listening: Off</span>

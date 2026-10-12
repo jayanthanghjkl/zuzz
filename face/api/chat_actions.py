@@ -281,7 +281,7 @@ class ChatActionRunner:
             # those families are registered but unreachable: the model is told about
             # a capability, calls it, and is refused with "not attached" — which is
             # how a capable agent starts claiming it saw a screen it never captured.
-occipital_lobe=getattr(self.state, "occipital_lobe", None),
+            occipital_lobe=getattr(self.state, "occipital_lobe", None),
             browser=getattr(self.state, "legs", None),
             # The three Phase 6 regions, reached the same way. Without them the
             # memory, routine and personality tools are registered but
@@ -293,6 +293,10 @@ occipital_lobe=getattr(self.state, "occipital_lobe", None),
             hippocampus=getattr(self.state, "hippocampus", None),
             basal_ganglia=getattr(self.state, "basal_ganglia", None),
             cerebellum=getattr(self.state, "cerebellum", None),
+            temporal_lobe=getattr(self.state, "temporal_lobe", None),
+            broca_area=getattr(self.state, "broca_area", None),
+            reticular_formation=getattr(self.state, "reticular_formation", None),
+            response_enhancer=getattr(self.state, "response_enhancer", None),
             # The coding engine, reached the same way. Without it the ten kilo_*
             # tools are registered but unreachable: the model is told ZUZZ can
             # generate code, calls it, and is refused with "not attached" — which is

@@ -144,6 +144,18 @@
     "someone at the exact moment they least want to read one, and the answer to a",
     "'may I sound less cheerful?' prompt is not a considered one."
   ],
+  "response_enhancement_note": [
+    "response_enhancement (Phase 4.5, Jarvis-style response enhancement) is auto at",
+    "EVERY level. It controls how ZUZZ's own replies are enhanced and presented:",
+    "thinking visualization, confidence scoring, context continuation, proactive",
+    "suggestions, self-critique, and mood-adaptive tone. These are read-only",
+    "presentation controls — they change how ZUZZ speaks, not what it does.",
+    "",
+    "It is auto because the exposure is zero: no file, no window, no network, no",
+    "model input is affected. The tools only toggle UI behaviours. A prompt here",
+    "would be a dialog asking 'may I show you my reasoning?' — the answer is",
+    "always yes, and the dialog would only annoy."
+  ],
   "levels": {
     "1": {"name": "cautious", "description": "Ask permission for everything"},
     "2": {"name": "assistant", "description": "Auto-approve read-only actions"},
@@ -186,7 +198,11 @@
     "modify_project":       {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
     "git_operations":       {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "auto"},
     "install_packages":     {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
-    "deploy_agents":        {"1": "ask",     "2": "ask",     "3": "ask",     "4": "auto",    "5": "auto"}
+    "deploy_agents":        {"1": "ask",     "2": "ask",     "3": "ask",     "4": "auto",    "5": "auto"},
+    "observe_user":         {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "create_macro":         {"1": "ask",     "2": "ask",     "3": "ask",     "4": "auto",    "5": "auto"},
+    "deploy_agent_team":    {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "response_enhancement": {"1": "auto",    "2": "auto",    "3": "auto",    "4": "auto",    "5": "auto"}
   },
   "policy": {
     "default_trust_level": 1,

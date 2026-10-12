@@ -6,6 +6,10 @@ routing level.
 
 Cloud requests prefer the dedicated connectors in the Corpus Callosum and fall
 back to LiteLLM. Local requests use Ollama directly.
+
+Response enhancement (Phase 4.5): The Cerebrum can optionally enhance replies
+with thinking visualization, confidence scoring, context continuation, proactive
+suggestions, self-critique, and mood-adaptive tone via the ResponseEnhancer.
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from brain.brainstem.activity_logger import get_logger
+from brain.cerebellum.response_enhancer import ResponseEnhancer, EnhancedResponse
 from brain.cerebrum.backends import (
     DEFAULT_LOCAL_MODEL,
     BackendError,
@@ -26,12 +31,13 @@ from brain.cerebrum.reasoning import estimate_confidence, list_local_models
 from brain.cerebrum.streaming import CerebrumStreaming
 from brain.corpus_callosum.cloud_bridge import get_bridge
 from brain.corpus_callosum.connector_state import ConnectorError
+from brain.hippocampus.hippocampus import Hippocampus
 from brain.prefrontal_cortex.action import Action, ActionCategory
 from brain.prefrontal_cortex.permission_gate import PermissionGate
 from brain.prefrontal_cortex.trust_manager import TrustManager
 from core.config import model_for_level, provider_for_level, timeout_for_level
 
-__all__ = ["Cerebrum", "CerebrumError", "InferenceRefused"]
+__all__ = ["Cerebrum", "CerebrumError", "InferenceRefused", "EnhancedResponse"]
 
 
 class Cerebrum(CerebrumStreaming):
@@ -41,6 +47,7 @@ class Cerebrum(CerebrumStreaming):
         history: Recent conversation, oldest-first, capped by the settings.
         bridge: Corpus Callosum bridge used for cloud requests.
         last_provider: Provider that produced the most recent reply.
+        enhancer: Optional ResponseEnhancer for Jarvis-style enhancements.
     """
 
     def __init__(
@@ -48,6 +55,9 @@ class Cerebrum(CerebrumStreaming):
         history_limit: int = 20,
         gate: Optional[PermissionGate] = None,
         trust_level: Optional[int] = None,
+        hippocampus: Optional[Hippocampus] = None,
+        response_enhancer: Optional[ResponseEnhancer] = None,
+        enable_enhancement: bool = True,
     ) -> None:
         """Initialise the engine.
 
@@ -61,6 +71,11 @@ class Cerebrum(CerebrumStreaming):
                 shared trust manager at call time. Read per call rather than
                 captured at construction so a trust change takes effect on the
                 next request instead of the next restart.
+            hippocampus: Optional Hippocampus for context continuation.
+            response_enhancer: Optional pre-built ResponseEnhancer, injected by
+                the composition root so the app's Hippocampus is the one the
+                enhancer reads. When omitted one is built from ``hippocampus``.
+            enable_enhancement: Whether to enable response enhancement (Phase 4.5).
         """
         self.history: List[Dict[str, str]] = []
         self.history_limit = history_limit
@@ -69,6 +84,12 @@ class Cerebrum(CerebrumStreaming):
         self.logger = get_logger()
         self.gate = gate if gate is not None else PermissionGate()
         self._trust_level = trust_level
+        if response_enhancer is not None:
+            self.enhancer = response_enhancer
+        elif enable_enhancement:
+            self.enhancer = ResponseEnhancer(hippocampus=hippocampus)
+        else:
+            self.enhancer = None
 
     def _current_trust(self) -> int:
         """Return the trust level to decide against.
@@ -255,3 +276,79 @@ class Cerebrum(CerebrumStreaming):
     async def local_models(self) -> List[str]:
         """Return the model names Ollama currently has downloaded."""
         return await list_local_models()
+
+    def enhance_response(
+        self,
+        message: str,
+        reply: str,
+        context: str = "",
+        token_probs: Optional[List[float]] = None,
+    ) -> EnhancedResponse:
+        """Enhance a raw reply with Jarvis-style enhancements.
+
+        Args:
+            message: The user's message.
+            reply: The raw model reply.
+            context: Optional system context for critique.
+            token_probs: Optional token probabilities for confidence scoring.
+
+        Returns:
+            EnhancedResponse with all enhancement artifacts.
+        """
+        if self.enhancer is None:
+            # Return a minimal enhanced response without enhancements
+            from brain.cerebellum.emotion_responder import detect_user_mood, NEUTRAL
+            from brain.cerebellum.confidence_scorer import ConfidenceResult
+            return EnhancedResponse(
+                reply=reply,
+                mood=detect_user_mood(message),
+                confidence=ConfidenceResult(score=0.5, factors={}, label="medium"),
+            )
+        return self.enhancer.enhance(message, reply, context, token_probs)
+
+    async def think_enhanced(
+        self, message: str, level: int = 1, context: Optional[str] = None
+    ) -> EnhancedResponse:
+        """Answer a message and return the fully enhanced response.
+
+        Args:
+            message: The user message.
+            level: Routing level 1-5 chosen by the Thalamus.
+            context: Optional situational context.
+
+        Returns:
+            EnhancedResponse with reply, thinking steps, confidence, suggestions, etc.
+
+        Raises:
+            CerebrumError: If the selected backend fails.
+        """
+        if provider_for_level(level) == "cloud":
+            self.last_provider = ""
+            reply = await self.think_cloud(message, level, context)
+            provider = self.last_provider or "cloud"
+            model = self._model_label(provider, level)
+        else:
+            reply = await self.think_local(message, level, context)
+            provider, model = "ollama", self._model_label("ollama", level)
+
+        # Build base result
+        base_result = {
+            "reply": reply,
+            "level": level,
+            "provider": provider,
+            "model": model,
+            "confidence": estimate_confidence(reply, len(message)),
+        }
+
+        # Enhance with Jarvis features
+        enhanced = self.enhance_response(message, reply, context)
+
+        # Merge base metadata
+        enhanced.metadata.update({
+            "level": level,
+            "provider": provider,
+            "model": model,
+            "base_confidence": base_result["confidence"],
+        })
+
+        return enhanced

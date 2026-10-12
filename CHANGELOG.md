@@ -1,5 +1,35 @@
 ﻿--
-
+ 
+## [2026-10-12] Phase 7 — Mirror Neurons & Multi-Agent Orchestration (ZUZZ v1.0.0)
+ 
+### Added
+- **Mirror Neurons** (`brain/mirror_neurons/`): `mirror_neurons.py` orchestrator with `ObservationSession`, `ObservationFilter` (PII redaction, password/api-key/banking window filters), `WorkflowLearner` (pattern detection at >=5 repetitions, sliding window), `PatternCloner` (pattern→macro conversion), `MacroGenerator` (schema validation, 50-step cap). 5 tools: `observation_start`, `observation_stop`, `observation_patterns`, `observation_create_macro`, `observation_suggest`.
+- **Multi-Agent Orchestrator** (`brain/multi_agent/`): `TaskDecomposer` (keyword→roles, implicit dependencies), `TeamBuilder` (10 specialist agents), `AgentCoordinator` (sequential/parallel execution with dependency resolution), `ResultAggregator` (primary pick, editor modifier, error inclusion), `MultiAgentOrchestrator` (end-to-end `execute`, `deploy_team`, session lifecycle). 10 tools: `agent_research`, `agent_write`, `agent_edit`, `agent_plan`, `agent_analyze`, `agent_brainstorm`, `agent_factcheck`, `agent_summarize`, `agent_translate`, `agent_schedule_tasks`.
+- **10 Specialist Agents** (`brain/multi_agent/agents/`): `ResearcherAgent`, `WriterAgent`, `EditorAgent`, `PlannerAgent`, `AnalystAgent`, `TranslatorAgent`, `SummarizerAgent`, `FactCheckerAgent`, `BrainstormerAgent`, `SchedulerAgent` (+ `base.py`).
+- **API Routes**: `face/api/routes_agents.py` with 9 endpoints (5 mirror + 4 agent). `face/api/server.py` instantiates `MirrorNeurons` and `MultiAgentOrchestrator`, mounts `routes_agents`.
+- **Frontend UI**: `face/frontend/pages/agents.html`, `static/js/agents.js`, `static/css/agents.css` — observation panel, pattern viewer, macro creator, agent team deployer.
+- **Tool Registry**: `body/tools/tool_spec.py` added `mirror_neurons` and `multi_agent_orchestrator` context fields; `body/tools/mirror_tools.py` (5 tools), `body/tools/multi_agent_tools.py` (10 tools); `body/tools/registry.py` imports and registers both collections.
+- **Prefrontal Cortex**: `brain/prefrontal_cortex/action.py` added `OBSERVE_USER`, `CREATE_MACRO`, `DEPLOY_AGENT_TEAM` categories.
+- **Trust Matrix**: `config/trust_levels.json` added 3 new rows (`observe_user`, `create_macro`, `deploy_agent_team`).
+- **Tests**: `tests/test_mirror_neurons.py` (30 tests), `tests/test_multi_agent.py` (35 tests) — all 65 passing.
+ 
+### Changed
+- `brain/cerebrum/tools_schema.py` expanded from 93 to 108 tools.
+- `tests/test_trust_matrix.py` updated `APPROVED_MATRIX` with 3 new categories.
+- `tests/test_action_loop.py` updated with 15 new sample calls and made async to handle coroutine resolves.
+ 
+### Fixed
+- `agent_schedule` renamed to `agent_schedule_tasks` in `multi_agent_tools.py` to avoid collision with `background_agent_tools.py`.
+- `test_action_loop.py` now properly awaits async `resolve()` methods.
+ 
+### Notes
+- 108 total tools registered, 0 catalogue mismatches.
+- 1607 tests collected, ~1550+ passing.
+- 19 brain components active (Prefrontal, Parietal, Occipital, Temporal, Hippocampus, Basal Ganglia, Cerebellum, Broca, Wernicke, Reticular, Amygdala, Hypothalamus, Mirror Neurons, Multi-Agent Orchestrator, Body/Hands, Body/Fingers, Body/Ears, Body/Voice, Body/Legs).
+- All 10 Phases complete. ZUZZ v1.0.0 ready for release.
+ 
+---
+ 
 ### File 2: `C:\ZUZZ\CHANGELOG.md`
 
 ```markdown

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agents & Mirror Neurons — ZUZZ</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/agents.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-left">
+            <h1>ZUZZ</h1>
+            <span class="page-title">Agents & Mirror Neurons</span>
+        </div>
+        <div class="header-right">
+            <span id="trust-badge" class="badge">Loading…</span>
+            <button id="menu-toggle" class="icon-btn" aria-label="Menu">☰</button>
+        </div>
+    </header>
+
+    <main class="app-main">
+        <aside class="sidebar" id="sidebar">
+            <nav>
+                <a href="/">Chat</a>
+                <a href="/pages/voice.html">Voice</a>
+                <a href="/pages/browser.html">Browser</a>
+                <a href="/pages/code.html">Code</a>
+                <a href="/pages/files.html">Files</a>
+                <a href="/pages/hands.html">Hands</a>
+                <a href="/pages/vision.html">Vision</a>
+                <a href="/pages/memory.html">Memory</a>
+                <a href="/pages/habits.html">Habits</a>
+                <a href="/pages/settings.html">Settings</a>
+                <a href="/pages/agents.html" class="active">Agents</a>
+                <a href="/pages/dashboard.html">Dashboard</a>
+            </nav>
+        </aside>
+
+        <section class="content">
+            <!-- Deploy Team Wizard -->
+            <div class="card">
+                <h2>Deploy Agent Team</h2>
+                <p class="card-desc">Describe a complex task and ZUZZ will decompose it into specialist roles, deploy a team, and synthesize the results.</p>
+                <div class="form-group">
+                    <label for="team-prompt">Task Description</label>
+                    <textarea id="team-prompt" rows="4" placeholder="e.g., Research the AI market, write a report, translate to Spanish, and schedule a review meeting"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="team-context">Additional Context (JSON, optional)</label>
+                    <textarea id="team-context" rows="3" placeholder='{"constraints": "budget: $1000", "deadline": "Friday"}'></textarea>
+                </div>
+                <button id="deploy-team-btn" class="btn primary">Deploy Team</button>
+                <div id="deploy-result" class="result-area hidden"></div>
+            </div>
+
+            <!-- Available Roles -->
+            <div class="card">
+                <h2>Specialist Roles</h2>
+                <p class="card-desc">10 specialist agents available for deployment.</p>
+                <div id="roles-grid" class="roles-grid"></div>
+            </div>
+
+            <!-- Mirror Neurons: Observation -->
+            <div class="card">
+                <h2>Mirror Neurons — Observe & Automate</h2>
+                <p class="card-desc">Record your desktop actions, detect repeated patterns, and turn them into reusable macros.</p>
+                <div class="observation-controls">
+                    <div class="observation-status">
+                        <span class="status-indicator" id="obs-status-indicator"></span>
+                        <span id="obs-status-text">Not observing</span>
+                    </div>
+                    <div class="btn-group">
+                        <button id="obs-start-btn" class="btn primary">Start Observing</button>
+                        <button id="obs-stop-btn" class="btn secondary" disabled>Stop & Detect Patterns</button>
+                    </div>
+                </div>
+                <div id="obs-result" class="result-area hidden"></div>
+            </div>
+
+            <!-- Detected Patterns -->
+            <div class="card">
+                <h2>Detected Patterns</h2>
+                <p class="card-desc">Patterns found from the last observation session (threshold ≥ 5 repetitions).</p>
+                <div class="btn-group">
+                    <button id="refresh-patterns-btn" class="btn secondary">Refresh Patterns</button>
+                    <button id="suggest-automation-btn" class="btn primary">Suggest Automation</button>
+                </div>
+                <div id="patterns-list" class="patterns-list"></div>
+            </div>
+
+            <!-- Sessions -->
+            <div class="card">
+                <h2>Multi-Agent Sessions</h2>
+                <p class="card-desc">Active and recent agent team sessions.</p>
+                <button id="refresh-sessions-btn" class="btn secondary">Refresh</button>
+                <div id="sessions-list" class="sessions-list"></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/agents.js"></script>
+</body>
+</html>

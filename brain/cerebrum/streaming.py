@@ -3,6 +3,8 @@
 The streaming half of the Cerebrum, split into a mixin so `cerebrum.py` stays
 under the 200-line limit. Handles both transports: Ollama's NDJSON stream for
 local models and the Corpus Callosum connectors' SSE stream for cloud providers.
+
+Phase 4.5: Emits thinking events during streaming when enhancement is enabled.
 """
 
 from __future__ import annotations
@@ -19,27 +21,23 @@ from core.config import model_for_level, provider_for_level, timeout_for_level
 class CerebrumStreaming:
     """Streaming mixin for the Cerebrum.
 
-Expects the host class to provide ``history``, ``history_limit``, ``bridge``,
-``last_provider``, ``remember``, ``_check_may_infer`` and the model config
-helpers.
-"""
+    Expects the host class to provide ``history``, ``history_limit``, ``bridge``,
+    ``last_provider``, ``remember``, ``_check_may_infer`` and the model config
+    helpers. Optionally ``enhancer`` for thinking event emission.
+    """
 
-    async def stream(self, message: str, level: int = 1) -> AsyncIterator[str]:
-        """Stream a reply token by token.
+    async def stream(self, message: str, level: int = 1) -> AsyncIterator[Dict[str, Any]]:
+        """Stream a reply token by token with optional thinking events.
 
-        Yields each fragment as it arrives rather than collecting the whole reply
-        first. Collecting and returning made this an ordinary coroutine that
-        yielded nothing, so ``async for`` over it raised ``TypeError`` — meaning
-        the chat UI's own streaming path, the one most requests actually take,
-        could not work at all. The conversation is still recorded once the
-        stream ends, so history holds the complete answer.
+        Yields dicts with ``type``: "token" for content, "thinking" for reasoning
+        steps, or "done" for completion.
 
         Args:
             message: The user message.
             level: Routing level.
 
         Yields:
-            Text fragments.
+            Event dicts.
 
         Raises:
             InferenceRefused: If the kill switch is engaged or a rule forbids
@@ -54,6 +52,11 @@ helpers.
         messages = build_messages(message, self.history, None, self.history_limit)  # type: ignore[attr-defined]
         collected: List[str] = []
 
+        # Initialize enhancer streaming if available
+        enhancer = getattr(self, "enhancer", None)
+        if enhancer:
+            enhancer.reset_streaming()
+
         if provider_for_level(level) == "cloud":
             source = self._stream_cloud(messages, level)  # type: ignore[attr-defined]
         else:
@@ -61,10 +64,24 @@ helpers.
 
         async for fragment in source:
             collected.append(fragment)
-            yield fragment
+
+            # Emit thinking event if enhancer is available
+            if enhancer:
+                thinking_event = enhancer.enhance_streaming(message, fragment, is_final=False)
+                if thinking_event:
+                    yield thinking_event
+
+            yield {"type": "token", "content": fragment}
+
+        # Final flush for thinking
+        if enhancer:
+            thinking_event = enhancer.enhance_streaming(message, "", is_final=True)
+            if thinking_event:
+                yield thinking_event
 
         self.remember("user", message)  # type: ignore[attr-defined]
         self.remember("assistant", "".join(collected))  # type: ignore[attr-defined]
+        yield {"type": "done", "content": "".join(collected)}
 
     async def _stream_cloud(self, messages: List[Dict[str, str]], level: int) -> AsyncIterator[str]:
         """Stream from the Corpus Callosum bridge.

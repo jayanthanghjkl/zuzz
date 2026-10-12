@@ -153,6 +153,16 @@ APPROVED_MATRIX: Dict[str, tuple] = {
     "git_operations": (ASK, ASK, ASK, ASK, AUTO),
     "install_packages": (ASK, ASK, ASK, ASK, ASK),
     "deploy_agents": (ASK, ASK, ASK, AUTO, AUTO),
+    # Phase 7: Mirror Neurons and Multi-Agent Orchestrator.
+    # observe_user asks at 1 and 2, auto from 3 - the user has accepted desktop
+    # awareness at level 3. create_macro asks through 3 and auto from 4 because
+    # it writes a persistent automation. deploy_agent_team asks at 1 and 2,
+    # auto from 3, because it runs multiple Cerebrum calls and level 3 trusts
+    # ZUZZ with complex desktop tasks.
+    "observe_user": (ASK, ASK, AUTO, AUTO, AUTO),
+    "create_macro": (ASK, ASK, ASK, AUTO, AUTO),
+    "deploy_agent_team": (ASK, ASK, AUTO, AUTO, AUTO),
+    "response_enhancement": (AUTO, AUTO, AUTO, AUTO, AUTO),
 }
 
 

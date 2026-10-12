@@ -85,6 +85,26 @@
         activeBubble = chat.addBot();
       }
       chat.appendText(activeBubble, event.content);
+    } else if (event.type === "thinking") {
+      /* A reasoning step arrived mid-stream: update the pulsing
+         indicator on the bubble being filled. */
+      if (EnhancementEvents.thinking) {
+        EnhancementEvents.thinking(chat, activeBubble, event);
+      }
+    } else if (event.type === "confidence") {
+      EnhancementEvents.confidence(chat, activeBubble || chat.addBot(), event);
+    } else if (event.type === "suggestion") {
+      EnhancementEvents.suggestion(
+        chat,
+        activeBubble || finishedBubble || chat.addBot(),
+        event
+      );
+    } else if (event.type === "mood") {
+      EnhancementEvents.mood(
+        chat,
+        activeBubble || finishedBubble || chat.addBot(),
+        event
+      );
     } else if (event.type === "done") {
       const ms = startedAt ? Math.round(performance.now() - startedAt) : undefined;
       chat.finish(activeBubble || chat.addBot(), {
@@ -92,6 +112,11 @@
         ms: ms,
         streamed: true
       });
+      /* The reasoning is over: settle the indicator rather than
+         leaving a pulsing dot on a finished reply. */
+      if (activeBubble) {
+        chat.showThinkingIndicator(activeBubble, { text: "", kind: "" }, "done");
+      }
       levelBadge.textContent = "L" + event.level;
       hint.textContent = event.reason || "Streaming via WebSocket";
       if (activeBubble) {

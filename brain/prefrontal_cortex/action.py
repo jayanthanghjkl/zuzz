@@ -188,6 +188,21 @@ class ActionCategory(str, Enum):
     GIT_OPERATIONS = "git_operations"
     INSTALL_PACKAGES = "install_packages"
     DEPLOY_AGENTS = "deploy_agents"
+    #: Added by Phase 7 for Mirror Neurons. Observation records what the user
+    #: does on their desktop. It asks at levels 1 and 2 because the stream of
+    #: actions can include private workflows, and auto-approves from level 3
+    #: where the user has explicitly raised trust for desktop awareness.
+    OBSERVE_USER = "observe_user"
+    #: Added by Phase 7 for Mirror Neurons. Creating a macro stores a reusable
+    #: routine. It asks at levels 1-3 because a macro writes a persistent
+    #: automation, and auto-approves only from level 4 where the user trusts
+    #: ZUZZ with routine management.
+    CREATE_MACRO = "create_macro"
+    #: Added by Phase 7 for Multi-Agent Orchestrator. Deploying a team of
+    #: specialist agents runs multiple Cerebrum calls sequentially. It asks at
+    #: levels 1 and 2 because each agent acts through the Cerebrum, and
+    #: auto-approves from level 3 where the user trusts ZUZZ with complex tasks.
+    DEPLOY_AGENT_TEAM = "deploy_agent_team"
 
     def __str__(self) -> str:
         """Return the config key for this category."""

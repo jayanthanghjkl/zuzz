@@ -247,6 +247,139 @@
       this.scrollToBottom();
     }
 
+    /* Jarvis-style enhancement rendering (Phase 4.5).
+
+       Four renderers, one per event the server emits alongside the
+       tokens: a live thinking indicator while the model reasons, a
+       confidence badge on the finished reply, dismissible suggestion
+       cards, and a subtle mood indicator. Each attaches to the node
+       the streaming bubble already created, so an enhancement is
+       visibly part of the reply it describes. */
+
+    /* One pulsing indicator per bubble, updated in place: a stream of
+       steps is one thought process, not one badge per step. */
+    showThinkingIndicator(node, step, status) {
+      if (!node) {
+        return;
+      }
+      let indicator = node.wrapper.querySelector(".thinking-indicator");
+      if (!indicator) {
+        indicator = document.createElement("div");
+        indicator.className = "thinking-indicator";
+        const dot = document.createElement("span");
+        dot.className = "thinking-dot";
+        indicator.appendChild(dot);
+        const label = document.createElement("span");
+        label.className = "thinking-text";
+        indicator.appendChild(label);
+        node.wrapper.insertBefore(indicator, node.meta);
+      }
+      const text = indicator.querySelector(".thinking-text");
+      const kind = step && step.kind ? step.kind : "";
+      const content = step && step.text ? step.text : "";
+      indicator.dataset.kind = kind;
+      indicator.dataset.status = status || "active";
+      text.textContent = status === "done"
+        ? "finished thinking"
+        : (kind ? kind + " — " : "") + content;
+      this.scrollToBottom();
+      return indicator;
+    }
+
+    /* Confidence badge: green/yellow/red by tier. Category is the
+       server's label ("high"/"medium"/"low") and score is 0–1. */
+    attachConfidenceBadge(node, score, category) {
+      if (!node) {
+        return;
+      }
+      const tier = (category || "medium").toLowerCase();
+      const rail = node.meta;
+      const existing = rail.querySelector(".confidence-badge");
+      if (existing) {
+        existing.remove();
+      }
+      const badge = document.createElement("span");
+      badge.className = `confidence-badge confidence-${tier}`;
+      badge.dataset.score = String(score);
+      badge.dataset.category = tier;
+      badge.textContent = `${Math.round(Number(score) * 100)}% confidence`;
+      badge.title = `Confidence tier: ${tier}`;
+      rail.appendChild(badge);
+      this.scrollToBottom();
+      return badge;
+    }
+
+    /* Suggestion card: dismissible, sits in the action rail next to
+       whatever the reply did. basedOn is what the suggestion was
+       derived from (its category), shown as the card's context. */
+    renderSuggestionCard(node, suggestion, basedOn) {
+      if (!node || !suggestion) {
+        return;
+      }
+      const card = document.createElement("div");
+      card.className = "suggestion-card";
+      card.dataset.category = suggestion.category || basedOn || "";
+
+      const label = document.createElement("span");
+      label.className = "suggestion-label";
+      label.textContent = suggestion.text || "";
+      card.appendChild(label);
+
+      if (basedOn || suggestion.category) {
+        const basis = document.createElement("span");
+        basis.className = "suggestion-basis";
+        basis.textContent = `based on ${suggestion.category || basedOn}`;
+        card.appendChild(basis);
+      }
+
+      const confidence = Number(suggestion.confidence);
+      if (!Number.isNaN(confidence)) {
+        const meter = document.createElement("span");
+        meter.className = "suggestion-confidence";
+        meter.textContent = `${Math.round(confidence * 100)}%`;
+        card.appendChild(meter);
+      }
+
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "suggestion-dismiss";
+      dismiss.textContent = "×";
+      dismiss.title = "Dismiss suggestion";
+      dismiss.addEventListener("click", () => card.remove());
+      card.appendChild(dismiss);
+
+      node.actions.appendChild(card);
+      this.scrollToBottom();
+      return card;
+    }
+
+    /* Mood indicator: a subtle marker on the meta line showing the
+       detected mood and how the reply was adjusted for it. */
+    showMoodIndicator(node, detected, adjustment) {
+      if (!node) {
+        return;
+      }
+      const existing = node.meta.querySelector(".mood-indicator");
+      if (existing) {
+        existing.remove();
+      }
+      const indicator = document.createElement("span");
+      indicator.className = `mood-indicator mood-${String(detected || "neutral").toLowerCase()}`;
+      indicator.dataset.mood = detected || "neutral";
+      indicator.textContent = detected && detected !== "neutral"
+        ? `mood: ${detected}`
+        : "";
+      if (adjustment && detected && detected !== "neutral") {
+        indicator.title = String(adjustment);
+      }
+      if (!indicator.textContent) {
+        return indicator;
+      }
+      node.meta.appendChild(indicator);
+      this.scrollToBottom();
+      return indicator;
+    }
+
     clear() {
       this.element.innerHTML = "";
     }
@@ -343,9 +476,50 @@
       }));
   }
 
+  /* Event handlers for the enhancement events the server emits
+     alongside the token stream. Each takes the ChatLog, the node
+     the streaming bubble created (app.js tracks it), and the raw
+     event. */
   global.ChatLog = ChatLog;
   global.ConfirmationPopup = ConfirmationPopup;
   global.postConfirmation = postConfirmation;
   global.renderMarkdown = renderMarkdown;
   global.stripActionFences = stripActionFences;
+
+  /* Enhancement event handlers, wired in app.js. They reach the
+     ChatLog through the log element every handler is given, so
+     they work for both the WebSocket and any future surface. */
+  global.EnhancementEvents = {
+    thinking: function (log, node, event) {
+      const step = event.step || {
+        text: event.text || event.content || "",
+        kind: event.kind || "",
+        index: event.index || 0,
+      };
+      return log.showThinkingIndicator(node, step, "active");
+    },
+    confidence: function (log, node, event) {
+      return log.attachConfidenceBadge(
+        node,
+        event.score,
+        event.label || event.category || "medium"
+      );
+    },
+    suggestion: function (log, node, event) {
+      const suggestion = {
+        text: event.text,
+        category: event.category,
+        confidence: event.confidence,
+        action: event.action,
+      };
+      return log.renderSuggestionCard(node, suggestion, event.basedOn);
+    },
+    mood: function (log, node, event) {
+      return log.showMoodIndicator(
+        node,
+        event.detected || event.mood,
+        event.adjustment
+      );
+    },
+  };
 })(window);

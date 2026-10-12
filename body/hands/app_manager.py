@@ -27,6 +27,7 @@ Explorer. See :func:`body.hands.window_guards.guard_process`.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from typing import Any, Dict, List, Optional
 
@@ -212,9 +213,15 @@ def launch(command: str) -> Any:
             whatever the user typed for an unknown application.
 
     Returns:
-        The started process.
+        The started process or None when launched via shell/startfile.
     """
-    return subprocess.Popen(command, shell=False)
+    try:
+        return subprocess.Popen(command, shell=False)
+    except (FileNotFoundError, OSError):
+        if hasattr(os, "startfile"):
+            os.startfile(command)
+            return None
+        raise
 
 
 def process_name_of(pid: int) -> str:

@@ -1,7 +1,6 @@
-"""Cerebellum — ZUZZ personality, tone and mood.
+"""Cerebellum — ZUZZ personality, tone, mood, and response enhancement.
 
-Everything about how ZUZZ sounds rather than what it does. Four modules and one
-orchestrator:
+Everything about how ZUZZ sounds rather than what it does. Core modules:
 
 * :mod:`brain.cerebellum.personality_config` — reads and writes
   ``config/personality.json``, with a default for every field.
@@ -11,6 +10,16 @@ orchestrator:
   matches it.
 * :mod:`brain.cerebellum.emotion_responder` — reads the user's mood and reshapes
   the reply's frame.
+
+Jarvis-style enhancement modules (Phase 4.5):
+
+* :mod:`brain.cerebellum.thinking_display` — extracts and labels reasoning steps.
+* :mod:`brain.cerebellum.confidence_scorer` — scores reply confidence 0.0–1.0.
+* :mod:`brain.cerebellum.context_continuer` — injects relevant memory context.
+* :mod:`brain.cerebellum.proactive_suggester` — generates follow-up suggestions.
+* :mod:`brain.cerebellum.self_critic` — flags issues before the user sees them.
+* :mod:`brain.cerebellum.personality_variations` — mood-adaptive response modes.
+* :mod:`brain.cerebellum.response_enhancer` — orchestrator tying all above together.
 
 :mod:`brain.cerebrum.prompts` calls
 :meth:`~brain.cerebellum.cerebellum.Cerebellum.apply_personality` on every system
@@ -40,6 +49,16 @@ from brain.cerebellum.character_prompts import (
     get_greeting,
     get_signoff,
 )
+from brain.cerebellum.confidence_scorer import (
+    ConfidenceResult,
+    ConfidenceScorer,
+    score_reply,
+)
+from brain.cerebellum.context_continuer import (
+    ContextContinuer,
+    ContinuationContext,
+    get_continuation_context,
+)
 from brain.cerebellum.emotion_responder import (
     EXCITED,
     FRUSTRATED,
@@ -63,6 +82,34 @@ from brain.cerebellum.personality_config import (
     load,
     write_changes,
 )
+from brain.cerebellum.personality_variations import (
+    PersonalityVariations,
+    VariationSet,
+    apply_variation,
+    select_variation,
+)
+from brain.cerebellum.proactive_suggester import (
+    ProactiveSuggester,
+    Suggestion,
+    generate_suggestions,
+)
+from brain.cerebellum.response_enhancer import (
+    EnhancedResponse,
+    ResponseEnhancer,
+    enhance_response,
+)
+from brain.cerebellum.self_critic import (
+    CritiqueResult,
+    CritiqueFlag,
+    SelfCritic,
+    critique_reply,
+)
+from brain.cerebellum.thinking_display import (
+    ThinkingDisplay,
+    ThinkingStep,
+    THINKING_PATTERNS,
+    extract_thinking_steps,
+)
 from brain.cerebellum.tone_detector import (
     CASUAL,
     FORMAL,
@@ -74,7 +121,14 @@ __all__ = [
     "ALLOWED_VALUES",
     "CASUAL",
     "Cerebellum",
+    "ConfidenceResult",
+    "ConfidenceScorer",
+    "ContextContinuer",
+    "ContinuationContext",
+    "CritiqueFlag",
+    "CritiqueResult",
     "EDITABLE_KEYS",
+    "EnhancedResponse",
     "EXCITED",
     "FORMAL",
     "FRUSTRATED",
@@ -86,19 +140,36 @@ __all__ = [
     "Personality",
     "PersonalityRefused",
     "PersonalitySettings",
+    "PersonalityVariations",
+    "ProactiveSuggester",
+    "ResponseEnhancer",
+    "SelfCritic",
     "STYLES",
+    "Suggestion",
+    "THINKING_PATTERNS",
     "TIRED",
+    "ThinkingDisplay",
+    "ThinkingStep",
+    "VariationSet",
     "VERBOSITY",
     "adjust_response_tone",
     "apply_personality",
+    "apply_variation",
     "build_personality_directive",
+    "critique_reply",
     "detect_formality",
     "detect_user_mood",
+    "enhance_response",
+    "extract_thinking_steps",
     "formality_hint",
+    "generate_suggestions",
+    "get_continuation_context",
+    "get_cerebellum",
     "get_greeting",
     "get_signoff",
-    "get_cerebellum",
     "load",
     "mood_hint",
+    "score_reply",
+    "select_variation",
     "write_changes",
 ]

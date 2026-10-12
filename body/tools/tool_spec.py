@@ -68,11 +68,30 @@ class ToolContext:
         basal_ganglia: The
             :class:`~brain.basal_ganglia.basal_ganglia.BasalGanglia`, for the
             routine tools. ``None`` when the region is not attached.
-        cerebellum: The :class:`~brain.cerebellum.cerebellum.Cerebellum`, for the
-            personality tools. ``None`` when the region is not attached.
+        cerebellum: The :class:`~brain.cerebellum.cerebellum.Cerebellum`, for
+            the personality tools. ``None`` when the region is not attached.
+        temporal_lobe: The :class:`~brain.temporal_lobe.temporal_lobe.TemporalLobe`,
+            for the voice input tools. ``None`` when the Lobe is not attached.
+        broca_area: The :class:`~brain.broca_area.broca_area.BrocaArea`, for the
+            voice output tools. ``None`` when the area is not attached.
+        reticular_formation: The
+            :class:`~brain.reticular_formation.reticular_formation.ReticularFormation`,
+            for the wake word tools. ``None`` when the formation is not attached.
+        response_enhancer: The
+            :class:`~brain.cerebellum.response_enhancer.ResponseEnhancer`,
+            for the response-enhancement tools. ``None`` when it is not
+            attached, which those tools refuse on rather than toggling a
+            flag nothing reads.
         kilo: The :class:`~body.mouth.kilo.kilo_engine.KiloEngine`, for the coding
             tools. ``None`` when the engine is not attached, which those tools refuse
             on rather than inventing code they did not write.
+        mirror_neurons: The :class:`~brain.mirror_neurons.mirror_neurons.MirrorNeurons`,
+            for the observation tools. ``None`` when the region is not attached, which
+            those tools refuse on rather than guessing at a pattern.
+        multi_agent_orchestrator: The
+            :class:`~multi_agent.orchestrator.MultiAgentOrchestrator`, for the multi-agent
+            tools. ``None`` when the orchestrator is not attached, which those tools refuse
+            on rather than inventing a team they did not deploy.
         write_decision: An *additional* decision the caller already holds, used by
             ``browser_download`` and by ``kilo_apply_changes``/``kilo_rollback`` — a
             download is a ``download_files`` and a ``write_files`` act, and applying a
@@ -91,7 +110,13 @@ class ToolContext:
     hippocampus: Any = None
     basal_ganglia: Any = None
     cerebellum: Any = None
+    temporal_lobe: Any = None
+    broca_area: Any = None
+    reticular_formation: Any = None
+    response_enhancer: Any = None
     kilo: Any = None
+    mirror_neurons: Any = None
+    multi_agent_orchestrator: Any = None
     write_decision: Any = None
 
 

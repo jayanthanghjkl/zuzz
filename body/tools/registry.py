@@ -25,13 +25,17 @@ from body.tools.code_tools import CODE_TOOLS
 from body.tools.communication_tools import COMMUNICATION_TOOLS
 from body.tools.file_tools import FILE_TOOLS
 from body.tools.keyboard_tools import KEYBOARD_TOOLS
-from body.tools.memory_tools import MEMORY_TOOLS
 from body.tools.mouse_tools import MOUSE_TOOLS
+from body.tools.mirror_tools import MIRROR_TOOLS
+from body.tools.multi_agent_tools import MULTI_AGENT_TOOLS
 from body.tools.parietal_tools import PARIETAL_TOOLS
+from body.tools.memory_tools import MEMORY_TOOLS
 from body.tools.personality_tools import PERSONALITY_TOOLS
+from body.tools.response_tools import RESPONSE_TOOLS
 from body.tools.routine_tools import ROUTINE_TOOLS
 from body.tools.system_tools import SYSTEM_TOOLS
 from body.tools.tool_spec import ToolSpec
+from body.tools.voice_tools import VOICE_TOOLS
 from body.tools.vision_tools import VISION_TOOLS
 
 __all__ = ["ToolRegistry", "catalogue_mismatches", "get_registry"]
@@ -130,5 +134,9 @@ def get_registry() -> ToolRegistry:
             + CODE_TOOLS
             + COMMUNICATION_TOOLS
             + BACKGROUND_AGENT_TOOLS
+            + VOICE_TOOLS
+            + RESPONSE_TOOLS
+            + tuple(MIRROR_TOOLS)
+            + tuple(MULTI_AGENT_TOOLS)
         )
     return _REGISTRY

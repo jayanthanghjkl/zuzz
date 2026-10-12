@@ -32,6 +32,8 @@ from brain.prefrontal_cortex.trust_manager import TrustManager
 from brain.spinal_cord.kill_switch import get_kill_switch
 from brain.spinal_cord.stop_scope import StopScope
 from brain.spinal_cord.watchdog import Watchdog
+from brain.mirror_neurons.mirror_neurons import MirrorNeurons
+from multi_agent.orchestrator import MultiAgentOrchestrator
 from brain.thalamus.router import Router
 from body.fingers import DirectoryManager, FileManager, TrashManager
 from body.hands import Hands
@@ -49,6 +51,9 @@ from core.audit import get_audit_log
 from core.config import ROOT, get_settings
 from brain.communication_hub.hub import CommunicationHub
 from brain.background_agents.agent_manager import AgentManager
+from brain.temporal_lobe.temporal_lobe import TemporalLobe
+from brain.broca_area.broca_area import BrocaArea
+from brain.reticular_formation.reticular_formation import ReticularFormation
 from face.api import (
     routes_assess,
     routes_brain,
@@ -69,7 +74,9 @@ from face.api import (
     routes_safety,
     routes_settings,
     routes_vision,
+    routes_voice,
     routes_background,
+    routes_agents,
 )
 from face.api.chat_actions import ChatActionRunner
 from face.api.file_confirmations import PendingConfirmations
@@ -183,6 +190,9 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     app.state.trust = TrustManager()
     app.state.audit = get_audit_log()
     app.state.kill_switch = get_kill_switch()
+    # The Hippocampus (memory) — created early so the Cerebrum can use it
+    # for context continuation (Phase 4.5).
+    app.state.hippocampus = Hippocampus(memory_dir)
     # The Body layer: every file operation is gated before it reaches
     # these, and these re-check the decision, the classification and
     # the switch a second time before touching the disk.
@@ -243,6 +253,22 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     # inference without the switch and the gate being consulted. Given the app's
     # own gate, so the answer is the same answer the rest of the system gives.
     app.state.thalamus.cerebrum.gate = app.state.permission_gate
+    # Replace the cerebrum with one that has the hippocampus for enhancement.
+    # The enhancer is built here and handed in rather than left for the
+    # Cerebrum to build, so the Hippocampus it reads for continuation and
+    # suggestions is provably the app's own — the same object the memory
+    # routes write to — and a second Cerebrum elsewhere cannot end up with
+    # a second, emptier one.
+    from brain.cerebrum.cerebrum import Cerebrum
+    from brain.cerebellum.response_enhancer import ResponseEnhancer
+    app.state.response_enhancer = ResponseEnhancer(
+        hippocampus=app.state.hippocampus
+    )
+    app.state.thalamus.cerebrum = Cerebrum(
+        gate=app.state.permission_gate,
+        hippocampus=app.state.hippocampus,
+        response_enhancer=app.state.response_enhancer,
+    )
     # Decide once whether the VRAM figures are measured or estimated, and label
     # them before anything is loaded against them.
     app.state.hypothalamus.calibrate()
@@ -331,7 +357,7 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     # second reading of the level would plan against a number nothing else agrees
     # with. It is built after ``app.state.permission_gate`` exists for the same
     # reason: the gate it plans against is the app's, not its own.
-    app.state.hippocampus = Hippocampus(memory_dir)
+    # app.state.hippocampus already created above for Cerebrum enhancement
     app.state.cerebellum = Cerebellum()
     app.state.basal_ganglia = BasalGanglia(
         gate=app.state.permission_gate,
@@ -340,6 +366,48 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     )
     app.state.communication_hub = CommunicationHub()
     app.state.agent_manager = AgentManager()
+
+    # Mirror Neurons (Phase 7) — learn by watching the user.
+    app.state.mirror_neurons = MirrorNeurons(parietal=app.state.parietal_lobe)
+
+    # Multi-Agent Orchestrator (Phase 7) — deploy specialist agent teams.
+    app.state.multi_agent_orchestrator = MultiAgentOrchestrator(
+        cerebrum=app.state.thalamus.cerebrum,
+    )
+
+    # Voice subsystems (Temporal Lobe, Broca's Area, Reticular Formation).
+    # Wrapped defensively so missing audio devices or optional dependencies
+    # do not prevent the rest of the server from starting.
+    try:
+        app.state.temporal_lobe = TemporalLobe()
+    except Exception as exc:
+        app.state.logger.log("brain", "temporal_lobe_init_failed", error=str(exc))
+        app.state.temporal_lobe = None
+
+    try:
+        app.state.broca_area = BrocaArea()
+    except Exception as exc:
+        app.state.logger.log("brain", "broca_area_init_failed", error=str(exc))
+        app.state.broca_area = None
+
+    try:
+        app.state.reticular_formation = ReticularFormation()
+    except Exception as exc:
+        app.state.logger.log("brain", "reticular_formation_init_failed", error=str(exc))
+        app.state.reticular_formation = None
+
+    routes_voice.set_dependencies(
+        app.state.temporal_lobe,
+        app.state.broca_area,
+        app.state.reticular_formation,
+    )
+
+    # Wire agents and mirror neurons routes
+    routes_agents.set_dependencies(
+        app.state.mirror_neurons,
+        app.state.multi_agent_orchestrator,
+    )
+
     # Shipped routines are added on first run, and never over a routine the user
     # has since edited or deleted. Their file wins either way.
     app.state.basal_ganglia.seed()
@@ -361,6 +429,7 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     app.include_router(routes_hands.router)
     app.include_router(routes_resources.router)
     app.include_router(routes_vision.router)
+    app.include_router(routes_voice.router)
     app.include_router(routes_browser.router)
     app.include_router(routes_memory.router)
     app.include_router(routes_habits.router)
@@ -370,6 +439,7 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     app.include_router(routes_communication.router)
     app.include_router(routes_background.router)
     app.include_router(routes_dashboard.router)
+    app.include_router(routes_agents.router)
 
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

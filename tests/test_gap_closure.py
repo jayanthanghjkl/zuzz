@@ -269,13 +269,14 @@ def test_streaming_actually_yields_fragments(tmp_path: Path) -> None:
         """Yield three fragments as a live backend would."""
         for fragment in ("Hello", ", ", "world"):
             yield fragment
+        # No done event - the cerebrum.stream adds that
 
     original = streaming_module.stream_local
     streaming_module.stream_local = fake_stream_local
     try:
         cerebrum = _stopped_cerebrum(KillSwitch(paths=[tmp_path / "stop.flag"]))
 
-        async def drain() -> List[str]:
+        async def drain() -> List[Dict[str, Any]]:
             """Collect the stream."""
             return [fragment async for fragment in cerebrum.stream("hi", level=1)]
 
@@ -283,7 +284,13 @@ def test_streaming_actually_yields_fragments(tmp_path: Path) -> None:
     finally:
         streaming_module.stream_local = original
 
-    assert fragments == ["Hello", ", ", "world"]
+    # Extract content from token events
+    token_contents = [f["content"] for f in fragments if f.get("type") == "token"]
+    assert token_contents == ["Hello", ", ", "world"]
+    # The done event should be present
+    done_events = [f for f in fragments if f.get("type") == "done"]
+    assert len(done_events) == 1
+    # History should still capture the full reply
     assert cerebrum.history[-1]["content"] == "Hello, world", "history lost the reply"
 
 

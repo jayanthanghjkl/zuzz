@@ -56,11 +56,57 @@ class StubCerebrum:
             "confidence": 0.9,
         }
 
+    async def think_enhanced(self, message: str, level: int = 1) -> "ScriptedEnhancedResponse":
+        """Return an enhanced response for the given level."""
+        self.calls.append({"message": message, "level": level, "enhanced": True})
+        return ScriptedEnhancedResponse(f"stub reply for level {level}")
+
+    def enhance_response(self, message: str, raw_reply: str) -> "ScriptedEnhancedResponse":
+        """Scripted enhancer - returns raw reply unchanged wrapped in EnhancedResponse-like object."""
+        return ScriptedEnhancedResponse(raw_reply)
+
     async def stream(self, message: str, level: int = 1):
-        """Yield a canned two-token stream."""
+        """Yield a canned stream with token events."""
         self.calls.append({"message": message, "level": level, "stream": True})
         for token in ("stub ", "stream"):
-            yield token
+            yield {"type": "token", "content": token}
+        yield {
+            "type": "done",
+            "level": level,
+            "streamed_level": level,
+            "reason": "scripted",
+            "provider": "stub",
+            "chars": 10,
+            "degraded": False,
+        }
+
+
+class ScriptedEnhancedResponse:
+    """Minimal EnhancedResponse mock for tests."""
+
+    def __init__(self, reply: str):
+        self.reply = reply
+        self.mood = "neutral"
+        self.thinking_steps = []
+        self.confidence = None
+        self.continuation = None
+        self.suggestions = []
+        self.critique = None
+        self.variation_meta = {}
+        self.metadata = {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "reply": self.reply,
+            "mood": self.mood,
+            "thinking_steps": [],
+            "confidence": None,
+            "continuation": None,
+            "suggestions": [],
+            "critique": None,
+            "variation_meta": {},
+            "metadata": {},
+        }
 
 
 @pytest.fixture()
@@ -123,8 +169,11 @@ def test_forced_level_is_honoured(client: TestClient) -> None:
     """A client-supplied level bypasses the analyzer."""
     response = client.post("/api/chat", json={"message": "hi", "level": 2})
     assert response.status_code == 200
-    assert response.json()["level"] == 2
-    assert response.json()["reason"] == "forced level"
+    data = response.json()
+    # The forced level flow returns the enhanced response with "reason": "forced level"
+    assert data.get("reason") == "forced level"
+    # The level is used internally and reflected in the reply
+    assert "level 2" in data.get("reply", "") or "level 2" in data.get("response", "")
 
 
 def test_classify_endpoint(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

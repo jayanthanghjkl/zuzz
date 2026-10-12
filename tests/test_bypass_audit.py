@@ -84,6 +84,15 @@ class SpyCerebrum:
             "chars": 8,
         }
 
+    async def think_enhanced(self, message: str, level: int = 1) -> "ScriptedEnhancedResponse":
+        """Record the level and return an enhanced response."""
+        self.asked.append(level)
+        return ScriptedEnhancedResponse("an answer")
+
+    def enhance_response(self, message: str, raw_reply: str) -> "ScriptedEnhancedResponse":
+        """Scripted enhancer - returns raw reply unchanged wrapped in EnhancedResponse-like object."""
+        return ScriptedEnhancedResponse(raw_reply)
+
     async def stream(self, message: str, level: int = 1):
         """Record the level and yield one fragment."""
         self.streams.append(level)
@@ -92,6 +101,34 @@ class SpyCerebrum:
     def think_local(self, *a: Any, **k: Any):
         """Present so the object satisfies the router's expectations."""
         raise AssertionError("think_local must not be called in these tests")
+
+
+class ScriptedEnhancedResponse:
+    """Minimal EnhancedResponse mock for tests."""
+
+    def __init__(self, reply: str):
+        self.reply = reply
+        self.mood = "neutral"
+        self.thinking_steps = []
+        self.confidence = None
+        self.continuation = None
+        self.suggestions = []
+        self.critique = None
+        self.variation_meta = {}
+        self.metadata = {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "reply": self.reply,
+            "mood": self.mood,
+            "thinking_steps": [],
+            "confidence": None,
+            "continuation": None,
+            "suggestions": [],
+            "critique": None,
+            "variation_meta": {},
+            "metadata": {},
+        }
 
 
 # -- Bypass 1: the watchdog could be disarmed by one unauthenticated POST ------

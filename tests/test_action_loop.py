@@ -102,6 +102,23 @@ class ScriptedThalamus:
     def check_level_allowed(self, level: int) -> str:
         return ""
 
+    def enhance_response(self, message: str, raw_reply: str) -> "ScriptedEnhancedResponse":
+        """Scripted enhancer - returns raw reply unchanged wrapped in EnhancedResponse-like object."""
+        return ScriptedEnhancedResponse(raw_reply)
+
+    async def stream(self, message: str):
+        """Scripted stream - yields the reply as a single token then done."""
+        yield {"type": "token", "content": self.reply}
+        yield {
+            "type": "done",
+            "level": 3,
+            "streamed_level": 3,
+            "reason": "scripted",
+            "provider": "script",
+            "chars": len(self.reply),
+            "degraded": False,
+        }
+
     def _result(self) -> Dict[str, Any]:
         return {
             "reply": self.reply,
@@ -111,6 +128,34 @@ class ScriptedThalamus:
             "confidence": 1.0,
             "reason": "scripted",
             "degraded": False,
+        }
+
+
+class ScriptedEnhancedResponse:
+    """Minimal EnhancedResponse mock for tests."""
+
+    def __init__(self, reply: str):
+        self.reply = reply
+        self.mood = "neutral"
+        self.thinking_steps = []
+        self.confidence = None
+        self.continuation = None
+        self.suggestions = []
+        self.critique = None
+        self.variation_meta = {}
+        self.metadata = {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "reply": self.reply,
+            "mood": self.mood,
+            "thinking_steps": [],
+            "confidence": None,
+            "continuation": None,
+            "suggestions": [],
+            "critique": None,
+            "variation_meta": {},
+            "metadata": {},
         }
 
 
@@ -445,7 +490,11 @@ def test_action_fence_stripped_from_prose(client, wired) -> None:
     assert actions_event["prose"] == "Opening Notepad for you."
     assert actions_event["executed"][0]["tool"] == "open_app"
     # It arrives after done, so the bubble exists to hang the badges off.
-    assert [e["type"] for e in events] == ["token", "done", "actions"]
+    # New Jarvis enhancement events (mood, variation) may appear between done and actions.
+    event_types = [e["type"] for e in events]
+    assert event_types[0] == "token", event_types
+    assert event_types[1] == "done", event_types
+    assert event_types[-1] == "actions", event_types
 
 
 # ---------------------------------------------------------------------
@@ -664,6 +713,28 @@ VISION_TOOL_NAMES = (
     "vision_verify_changed",
 )
 
+#: The ten voice tools added with Phase 5 Voice Interaction.
+VOICE_TOOL_NAMES = (
+    "voice_start_listening",
+    "voice_stop_listening",
+    "voice_speak",
+    "voice_stop_speaking",
+    "voice_transcribe_file",
+    "voice_set_voice",
+    "voice_set_emotion",
+    "voice_enable_wake_word",
+    "voice_disable_wake_word",
+    "voice_get_status",
+)
+
+#: The four response enhancement tools added with Phase 4.5 Jarvis.
+RESPONSE_TOOL_NAMES = (
+    "response_show_thinking",
+    "response_set_confidence",
+    "response_suggest_proactive",
+    "response_adapt_tone",
+)
+
 BROWSER_TOOL_NAMES = (
     "browser_open",
     "browser_navigate",
@@ -711,6 +782,7 @@ KILO_TOOL_NAMES = (
 
 NEW_TOOL_NAMES = (
     VISION_TOOL_NAMES + BROWSER_TOOL_NAMES + PARIETAL_TOOL_NAMES + KILO_TOOL_NAMES
+    + VOICE_TOOL_NAMES + RESPONSE_TOOL_NAMES
     + (
         "telegram_send_message",
         "telegram_send_file",
@@ -731,7 +803,9 @@ NEW_TOOL_NAMES = (
 )
 
 
-def test_all_64_tools_registered_and_callable() -> None:
+import asyncio
+
+async def test_all_108_tools_registered_and_callable() -> None:
     """Every tool the model is told about exists, and every one resolves and runs.
 
     Checked as a unit test with recording doubles rather than through the API,
@@ -740,28 +814,25 @@ def test_all_64_tools_registered_and_callable() -> None:
     cannot reach, and an implementation with no schema is a capability no model
     can ask for. Either one is a bug that no single route test would surface.
 
-    Sixty-four plus fifteen since Session 13: five vision tools, fifteen
-    browser tools, six system-awareness tools, five memory, five routine and three
-    personality tools from Phase 6, and ten kilo_* coding tools, plus fifteen
-    Phase 8 communication and background agent tools. Session 13
-    established that a count is not the claim being made — the twenty it added were
-    registered and unreachable — so the reachability half of this test is the part
-    that matters, and the count is only here to make a deletion fail loudly.
+    One hundred eight tools total: ninety-three from earlier phases plus five
+    mirror neuron tools and ten multi-agent tools from Phase 7.
     """
     from brain.cerebrum.tool_catalogue import TOOL_NAMES
     from body.tools import ToolContext, catalogue_mismatches
 
-    assert len(TOOL_NAMES) == 79, TOOL_NAMES
+    assert len(TOOL_NAMES) == 108, TOOL_NAMES
     assert catalogue_mismatches() == []
 
-    # The fifty-one tools added since Session 12 are present *by name*. A count
+    # The sixty-five tools added since Session 12 are present *by name*. A count
     # would pass on a typo, and a typo is exactly the failure mode this catalogue
     # keeps hitting: a schema entry the registry cannot resolve is a hand the model
     # was promised and never got.
-    assert len(NEW_TOOL_NAMES) == 51, NEW_TOOL_NAMES
+    assert len(NEW_TOOL_NAMES) == 65, NEW_TOOL_NAMES
     for name in (
         "vision_capture_screen", "browser_navigate", "parietal_detect_context",
         "kilo_generate_code", "kilo_apply_changes",
+        "voice_speak", "voice_start_listening",
+        "response_show_thinking", "response_set_confidence",
     ):
         assert name in TOOL_NAMES, f"{name} missing from the catalogue"
     for name in NEW_TOOL_NAMES:
@@ -782,11 +853,15 @@ def test_all_64_tools_registered_and_callable() -> None:
         hippocampus=getattr(app.state, "hippocampus", None),
         basal_ganglia=getattr(app.state, "basal_ganglia", None),
         cerebellum=getattr(app.state, "cerebellum", None),
+        temporal_lobe=getattr(app.state, "temporal_lobe", None),
+        broca_area=getattr(app.state, "broca_area", None),
+        reticular_formation=getattr(app.state, "reticular_formation", None),
+        response_enhancer=getattr(app.state, "response_enhancer", None),
     )
 
     # Every tool resolves to a real category and a target, with a summary the UI
     # can show. Resolution is where "there is no such thing to act on" is caught,
-    # so running it for all sixty-four is the test.
+    # so running it for all ninety-three is the test.
     for name in TOOL_NAMES:
         spec = runner.registry.get(name)
         assert spec is not None, name
@@ -877,9 +952,38 @@ def test_all_64_tools_registered_and_callable() -> None:
         "agent_stop": {"agent_id": "a1"},
         "agent_list": {},
         "agent_schedule": {"agent_id": "a1", "cron_expression": "* * * * *"},
+        "agent_schedule_tasks": {"task": "test task", "deadline": "Friday"},
         "agent_get_results": {"agent_id": "a1"},
         "agent_create_custom": {"name": "Custom", "code": "print(1)"},
         "agent_sync_now": {"agent_id": "a1"},
+        "agent_research": {"topic": "test topic", "depth": "normal"},
+        "agent_write": {"topic": "test topic", "style": "formal", "length": "100 words"},
+        "agent_edit": {"text": "test text", "instructions": "improve clarity"},
+        "agent_plan": {"goal": "test goal", "constraints": "limited time"},
+        "agent_analyze": {"data": "test data", "question": "what does this mean?"},
+        "agent_brainstorm": {"topic": "test topic", "count": 5},
+        "agent_factcheck": {"claim": "test claim"},
+        "agent_summarize": {"text": "test text", "max_length": "50 words"},
+        "agent_translate": {"text": "test text", "source_lang": "English", "target_lang": "Spanish"},
+        "observation_start": {},
+        "observation_stop": {},
+        "observation_patterns": {},
+        "observation_create_macro": {"pattern_id": "test_pattern", "name": "test_macro"},
+        "observation_suggest": {"threshold": 5},
+        "voice_start_listening": {"language": "en", "vad_enabled": "true"},
+        "voice_stop_listening": {"session_id": "test-session"},
+        "voice_speak": {"text": "hello", "emotion": "neutral"},
+        "voice_stop_speaking": {},
+        "voice_transcribe_file": {"file_path": "/tmp/test.wav"},
+        "voice_set_voice": {"voice_id": "voice-1"},
+        "voice_set_emotion": {"emotion": "happy"},
+        "voice_enable_wake_word": {"keywords": "hey zuzz"},
+        "voice_disable_wake_word": {},
+        "voice_get_status": {},
+        "response_show_thinking": {"enabled": "true"},
+        "response_set_confidence": {"enabled": "true"},
+        "response_suggest_proactive": {"enabled": "true"},
+        "response_adapt_tone": {"enabled": "true"},
     }
     assert set(samples) == set(TOOL_NAMES)
 
@@ -893,7 +997,11 @@ def test_all_64_tools_registered_and_callable() -> None:
         # (an unreadable path, an absent application, no open browser session) and
         # is checked, not ignored.
         try:
-            target = spec.resolve(dict(params), context)
+            resolve_result = spec.resolve(dict(params), context)
+            if asyncio.iscoroutine(resolve_result):
+                target = await resolve_result
+            else:
+                target = resolve_result
             assert target.category, name
             assert target.target, name
         except Exception as exc:  # noqa: BLE001 - the message is the assertion

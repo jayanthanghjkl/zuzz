@@ -937,6 +937,190 @@ TOOL_SCHEMAS: Tuple[Dict[str, Any], ...] = (
         "Get current voice system state: listening, speaking, wake word, available voices.",
         {},
     ),
+    # Response Enhancement tools (Phase 4.5 — Jarvis-style response enhancement).
+    #
+    # Grouped last as a new capability family. All read-only and all
+    # gated as `response_enhancement`, which auto-approves at every trust level.
+    # These tools do not act on the machine — they control how ZUZZ's own
+    # replies are enhanced and presented.
+    tool(
+        "response_show_thinking",
+        "Enable or disable streaming of the model's thinking steps. When enabled, "
+        "the model's reasoning is emitted as labelled steps before the final answer.",
+        {
+            "enabled": enum("Whether to show thinking steps", "true", "false"),
+        },
+        ("enabled",),
+    ),
+    tool(
+        "response_set_confidence",
+        "Configure confidence scoring for replies. When enabled, each reply gets a "
+        "confidence badge (low/medium/high) based on hedging, structure, and certainty.",
+        {
+            "enabled": enum("Whether to score confidence", "true", "false"),
+            "threshold": string("Optional confidence threshold for 'high' label (0.0-1.0)"),
+        },
+        ("enabled",),
+    ),
+    tool(
+        "response_suggest_proactive",
+        "Enable or disable proactive follow-up suggestions. When enabled, the UI shows "
+        "suggestion cards after each reply based on the conversation context.",
+        {
+            "enabled": enum("Whether to show suggestions", "true", "false"),
+            "max_suggestions": integer("Maximum suggestions to show (1-5)"),
+        },
+        ("enabled",),
+    ),
+    tool(
+        "response_adapt_tone",
+        "Enable or disable mood-adaptive tone variation. When enabled, replies are "
+        "automatically reshaped to match the user's detected mood (frustrated → direct, "
+        "excited → energetic, tired → low-friction).",
+        {
+            "enabled": enum("Whether to adapt tone to mood", "true", "false"),
+        },
+        ("enabled",),
+    ),
+    # Mirror Neurons tools (Phase 7 — learn by watching the user).
+    #
+    # Grouped as a new capability family. All gated under `observe_user` or
+    # `create_macro`, which ask at levels 1-2 and auto-approve from level 3.
+    # Observation is the most privacy-sensitive capability in the system: it
+    # records what the user does, so it asks for permission at the cautious
+    # levels and only auto-approves once the user has explicitly raised trust.
+    tool(
+        "observation_start",
+        "Begin observing the user's actions to detect repeatable patterns. "
+        "Sensitive actions — passwords, keys, banking — are filtered out automatically.",
+        {},
+    ),
+    tool(
+        "observation_stop",
+        "Stop observing and run pattern detection on the captured actions.",
+        {},
+    ),
+    tool(
+        "observation_patterns",
+        "Get the patterns detected from the last observation session, with their "
+        "repeat counts and a 0.0-1.0 score for how likely each is worth automating.",
+        {},
+    ),
+    tool(
+        "observation_create_macro",
+        "Create a disabled macro from a detected pattern. The macro is saved to the "
+        "routine engine but does not run until the user enables it.",
+        {
+            "pattern_id": string("The id of the pattern to turn into a macro"),
+            "name": string("A short label for the macro"),
+        },
+        ("pattern_id", "name"),
+    ),
+    tool(
+        "observation_suggest",
+        "Suggest automations for patterns that repeat at least the given threshold. "
+        "Threshold defaults to 5 repetitions.",
+        {
+            "threshold": integer("Minimum repetitions to suggest (default 5)"),
+        },
+    ),
+    # Multi-Agent tools (Phase 7 — deploy specialist agent teams).
+    #
+    # Grouped as `deploy_agent_team`, which asks at levels 1-2 and auto-approves
+    # from level 3. Each tool deploys a pre-configured team of specialist agents
+    # that run sequentially through the Cerebrum, so a team run is auditable
+    # and cannot bypass the permission gate.
+    tool(
+        "agent_research",
+        "Deploy a Research Specialist agent to find accurate information on a topic.",
+        {
+            "topic": string("The topic to research"),
+            "depth": enum("How thorough to be", "shallow", "normal", "deep"),
+        },
+        ("topic",),
+    ),
+    tool(
+        "agent_write",
+        "Deploy a Content Writer agent to produce clear, engaging text.",
+        {
+            "topic": string("What to write about"),
+            "style": string("Tone and audience, e.g. 'formal report for executives'"),
+            "length": string("Target length, e.g. '200 words' or 'one page'"),
+        },
+        ("topic",),
+    ),
+    tool(
+        "agent_analyze",
+        "Deploy a Data Analyst agent to interpret data and explain findings.",
+        {
+            "data": string("The data to analyze"),
+            "question": string("The question the analysis should answer"),
+        },
+        ("data",),
+    ),
+    tool(
+        "agent_plan",
+        "Deploy a Strategic Planner agent to design a roadmap or execution plan.",
+        {
+            "goal": string("The goal to plan toward"),
+            "constraints": string("Resource, time or technical constraints"),
+        },
+        ("goal",),
+    ),
+    tool(
+        "agent_edit",
+        "Deploy a Content Editor agent to refine text for clarity and tone.",
+        {
+            "text": string("The text to edit"),
+            "instructions": string("What to improve, e.g. 'tighten prose and fix ambiguity'"),
+        },
+        ("text",),
+    ),
+    tool(
+        "agent_translate",
+        "Deploy a Translator agent to translate text between languages.",
+        {
+            "text": string("The text to translate"),
+            "source_lang": string("The source language, e.g. 'English'"),
+            "target_lang": string("The target language, e.g. 'French'"),
+        },
+        ("text",),
+    ),
+    tool(
+        "agent_summarize",
+        "Deploy a Summarizer agent to distill long content into a concise summary.",
+        {
+            "text": string("The content to summarize"),
+            "max_length": string("Target summary length, e.g. '200 words'"),
+        },
+        ("text",),
+    ),
+    tool(
+        "agent_factcheck",
+        "Deploy a Fact Checker agent to verify a claim against available evidence.",
+        {
+            "claim": string("The claim to verify"),
+        },
+        ("claim",),
+    ),
+    tool(
+        "agent_brainstorm",
+        "Deploy a Brainstormer agent to generate creative ideas on a topic.",
+        {
+            "topic": string("The topic to brainstorm"),
+            "count": integer("How many ideas to generate (1-20)"),
+        },
+        ("topic",),
+    ),
+    tool(
+        "agent_schedule_tasks",
+        "Deploy a Scheduler agent to plan tasks and deadlines.",
+        {
+            "task": string("The task or project to schedule"),
+            "deadline": string("The deadline, e.g. 'Friday' or '2026-10-17'"),
+        },
+        ("task",),
+    ),
 )
 
 _BY_NAME: Dict[str, Dict[str, Any]] = {

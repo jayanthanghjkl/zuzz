@@ -16,6 +16,10 @@ then emits an ``actions`` event carrying the same envelope plus the authoritativ
 ``prose``, so the client can replace what it streamed with the reply the user
 should actually read.
 
+Phase 4.5: Responses are enhanced with thinking visualization, confidence scoring,
+context continuation, proactive suggestions, self-critique, and mood-adaptive tone.
+These enhancements are included in the response and streamed as events.
+
 **A finished turn is remembered.** Both surfaces hand the exchange to the
 Hippocampus, which is the only way anything reaches the memory store at all — the
 region has no listener of its own and no way to notice a conversation happened. The
@@ -32,7 +36,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-from brain.cerebrum.cerebrum import CerebrumError, InferenceRefused
+from brain.cerebrum.cerebrum import CerebrumError, InferenceRefused, EnhancedResponse
 
 from face.api.chat_actions import ChatActionRunner
 
@@ -144,7 +148,8 @@ async def chat(payload: ChatRequest, request: Request) -> Dict[str, Any]:
     Returns:
         The answer plus routing metadata, with ``response`` holding the prose
         the user should read — every action fence stripped — and ``actions``
-        holding what happened.
+        holding what happened. Includes ``enhancement`` with thinking, confidence,
+        suggestions, critique, and variation metadata.
 
     Raises:
         HTTPException: 400 for an empty message, 409 when the machine is stopped
@@ -156,16 +161,6 @@ async def chat(payload: ChatRequest, request: Request) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     try:
         if payload.level is not None:
-            # A forced level skips the routing ladder, so the resource check the
-            # ladder would have made has to be made here. Without it, asking for
-            # level 1 explicitly was a way to reach local inference on a machine
-            # that was too hot or out of VRAM — the same bypass the automatic path
-            # closes, reachable by naming the level instead.
-            #
-            # Refused rather than quietly rerouted. The caller named a level, so
-            # honouring it by sending the question somewhere else — to a cloud
-            # provider — would answer a different request than the one made,
-            # without saying so.
             blocked = thalamus.check_level_allowed(payload.level)
             if blocked:
                 raise HTTPException(
@@ -175,24 +170,24 @@ async def chat(payload: ChatRequest, request: Request) -> Dict[str, Any]:
                         f"{blocked}. Omit `level` to let ZUZZ choose."
                     ),
                 )
-            result = await thalamus.cerebrum.think(message, payload.level)
+            # Use enhanced thinking for forced levels too
+            enhanced: EnhancedResponse = await thalamus.cerebrum.think_enhanced(message, payload.level)
+            result = enhanced.to_dict()
             result.update({"reason": "forced level", "degraded": False})
         else:
+            # Route normally, then enhance
             result = await thalamus.route(message, await internet_available())
+            # Enhance the reply
+            raw_reply = result.get("reply", "")
+            enhanced = thalamus.cerebrum.enhance_response(message, raw_reply)
+            result["enhancement"] = enhanced.to_dict()
     except InferenceRefused as exc:
-        # 409, the same code every other route uses for an engaged switch. Not
-        # 503: a backend that is merely unreachable is worth retrying, and
-        # inviting a retry while the machine is stopped is the wrong advice.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except CerebrumError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     runner = ChatActionRunner(request.app.state)
-    envelope = await runner.run_reply(str(result.get("reply", "")))
-    # ``response`` is the prose the user should read. The raw ``reply`` stays on
-    # the payload because the routing metadata around it is what a client
-    # inspects when debugging a degraded answer, and the actions are already out
-    # of it.
+    envelope = await runner.run_reply(str(result.get("reply", "") if "reply" in result else result.get("response", "")))
     result["response"] = envelope["prose"]
     result["actions"] = _wire(envelope)
     remember_turn(request, message, str(envelope["prose"]))
@@ -248,10 +243,11 @@ async def classify(payload: ChatRequest, request: Request) -> Dict[str, Any]:
 
 @router.websocket("/ws")
 async def websocket_chat(websocket: WebSocket) -> None:
-    """Stream a chat reply, then what it did, over a WebSocket.
+    """Stream a chat reply with enhancements, then what it did, over a WebSocket.
 
     Expects ``{"message": str, "level": int | None}`` and emits, in order:
-    ``token`` events, one ``done``, and — **only if the reply asked for
+    ``token`` events, ``thinking`` events, ``confidence`` events,
+    ``suggestion`` events, one ``done``, and — **only if the reply asked for
     anything** — one ``actions`` event after it.
 
     The ``actions`` event arrives *after* ``done`` deliberately. It carries the
@@ -276,14 +272,12 @@ async def websocket_chat(websocket: WebSocket) -> None:
                 continue
             collected = ""
             try:
-                async for event in thalamus.route_stream(message, await internet_available()):
+                # Use streaming with thinking events
+                async for event in thalamus.cerebrum.stream(message):
                     if event.get("type") == "token":
                         collected += str(event.get("content", ""))
                     await websocket.send_json(event)
             except InferenceRefused as exc:
-                # Named apart from a backend failure so the UI can say "the
-                # machine is stopped" rather than "something went wrong", and
-                # offer a reset instead of a retry.
                 await websocket.send_json(
                     {"type": "refused", "content": str(exc), "status": 409}
                 )
@@ -292,8 +286,48 @@ async def websocket_chat(websocket: WebSocket) -> None:
                 await websocket.send_json({"type": "error", "content": str(exc)})
                 continue
 
+            # Enhance the collected reply for confidence, suggestions, critique
+            enhanced = thalamus.cerebrum.enhance_response(message, collected)
+
+            # Emit confidence event
+            if enhanced.confidence:
+                await websocket.send_json({
+                    "type": "confidence",
+                    "score": enhanced.confidence.score,
+                    "label": enhanced.confidence.label,
+                    "factors": enhanced.confidence.factors,
+                })
+
+            # Emit suggestion events
+            for suggestion in enhanced.suggestions:
+                await websocket.send_json({
+                    "type": "suggestion",
+                    "text": suggestion.text,
+                    "category": suggestion.category,
+                    "confidence": suggestion.confidence,
+                    "action": suggestion.action,
+                })
+
+            # Emit mood event — what was detected and how the reply
+            # was reshaped by it. Emitted before the variation
+            # metadata so the UI can show the indicator first.
+            from brain.cerebellum.emotion_responder import mood_hint
+
+            await websocket.send_json({
+                "type": "mood",
+                "detected": enhanced.mood,
+                "adjustment": mood_hint(enhanced.mood),
+            })
+
+            # Emit variation/mood metadata
+            await websocket.send_json({
+                "type": "variation",
+                "mood": enhanced.mood,
+                "meta": enhanced.variation_meta,
+            })
+
             runner = ChatActionRunner(websocket.app.state)
-            envelope = await runner.run_reply(collected)
+            envelope = await runner.run_reply(enhanced.reply)
             # Remembered before the branch below, because that branch ``continue``s
             # and this is the surface the UI actually uses: remembering only on the
             # turns that carried an action would mean an ordinary conversation left
@@ -303,6 +337,7 @@ async def websocket_chat(websocket: WebSocket) -> None:
                 # A conversational reply: no event, so the client has nothing to
                 # render. Emitting an empty one would push a badge-less event
                 # through the UI on every single message.
+                await websocket.send_json({"type": "done", "prose": envelope["prose"]})
                 continue
             await websocket.send_json(
                 {"type": "actions", "prose": envelope["prose"], **envelope}
