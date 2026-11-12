@@ -162,6 +162,9 @@ APPROVED_MATRIX: Dict[str, tuple] = {
     "observe_user": (ASK, ASK, AUTO, AUTO, AUTO),
     "create_macro": (ASK, ASK, ASK, AUTO, AUTO),
     "deploy_agent_team": (ASK, ASK, AUTO, AUTO, AUTO),
+    "voice_input": (ASK, ASK, AUTO, AUTO, AUTO),
+    "voice_output": (AUTO, AUTO, AUTO, AUTO, AUTO),
+    "wake_word_control": (ASK, ASK, ASK, ASK, ASK),
     "response_enhancement": (AUTO, AUTO, AUTO, AUTO, AUTO),
 }
 

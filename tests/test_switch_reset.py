@@ -73,26 +73,28 @@ def test_reset_when_not_stopped_is_a_no_op(switch: KillSwitch) -> None:
 # -- fail safe --------------------------------------------------------------
 
 
-def test_reset_refuses_when_a_flag_survives(tmp_path: Path) -> None:
+def test_reset_refuses_when_a_flag_survives(tmp_path: Path, monkeypatch) -> None:
     """A flag that cannot be deleted keeps ZUZZ stopped.
 
     Reporting a successful reset while a flag survives is the dangerous
     direction: the UI would say running while the gate still denies everything.
-    On Windows a read-only file can still be deleted, so the handle is held open
-    instead — an open file cannot be removed on either platform.
+    Model an unlink failure explicitly: POSIX permits deleting open files, so
+    holding a handle alone is not a portable way to simulate a locked flag.
     """
     free = tmp_path / "free_stop.flag"
     held = tmp_path / "held_stop.flag"
     switch = KillSwitch(paths=[free, held], audit=AuditLog(tmp_path / "audit.jsonl"))
     switch.trigger()
 
-    handle = open(held, "r", encoding="utf-8")
-    try:
-        with pytest.raises(ResetRefused) as exc:
-            reset(switch)
-        assert "stays stopped" in str(exc.value)
-    finally:
-        handle.close()
+    original_unlink = Path.unlink
+    def locked_unlink(path, *args, **kwargs):
+        if path == held:
+            raise PermissionError("simulated locked flag")
+        return original_unlink(path, *args, **kwargs)
+    monkeypatch.setattr(Path, "unlink", locked_unlink)
+    with pytest.raises(ResetRefused) as exc:
+        reset(switch)
+    assert "stays stopped" in str(exc.value)
     assert switch.is_killed()
     assert free.exists() is False
 

@@ -203,6 +203,10 @@ class ActionCategory(str, Enum):
     #: levels 1 and 2 because each agent acts through the Cerebrum, and
     #: auto-approves from level 3 where the user trusts ZUZZ with complex tasks.
     DEPLOY_AGENT_TEAM = "deploy_agent_team"
+    VOICE_INPUT = "voice_input"
+    VOICE_OUTPUT = "voice_output"
+    WAKE_WORD_CONTROL = "wake_word_control"
+    RESPONSE_ENHANCEMENT = "response_enhancement"
 
     def __str__(self) -> str:
         """Return the config key for this category."""

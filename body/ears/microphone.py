@@ -1,6 +1,9 @@
 """Microphone hardware access via sounddevice."""
 
-import sounddevice as sd
+try:
+    import sounddevice as sd
+except (ImportError, OSError):
+    sd = None
 import numpy as np
 import asyncio
 from typing import Optional, Callable
@@ -31,6 +34,8 @@ class Microphone:
 
     def list_devices(self) -> list:
         """List available audio input devices."""
+        if sd is None:
+            raise RuntimeError("Local audio requires sounddevice and the PortAudio system library")
         devices = sd.query_devices()
         input_devices = []
         for i, device in enumerate(devices):

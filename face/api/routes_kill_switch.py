@@ -93,6 +93,18 @@ async def kill_switch_stop(request: Request, body: StopRequest) -> Dict[str, Any
         report = _scope(request).engage(reason=body.reason, source=body.source)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Stop active audio as well as refusing future operations. Cancellation is
+    # cleanup and must never require a new permission decision.
+    ba = getattr(request.app.state, "broca_area", None)
+    tl = getattr(request.app.state, "temporal_lobe", None)
+    if ba is not None:
+        await ba.stop_speaking(None)
+    if tl is not None:
+        for session_id in list(tl.get_active_sessions()):
+            try:
+                await tl.stop_listening(None, session_id)
+            except Exception as exc:
+                request.app.state.logger.log("voice", "stop_cleanup_failed", error=str(exc))
     request.app.state.logger.log(
         "spinal_cord",
         "stop",

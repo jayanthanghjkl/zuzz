@@ -97,10 +97,10 @@ class PyAutoGUIActuator:
         """
         try:
             import pyautogui
-        except ImportError as exc:  # pragma: no cover - environment dependent
+        except (ImportError, KeyError, OSError) as exc:  # pragma: no cover - environment dependent
             raise ActuatorError(
-                "PyAutoGUI is required for desktop control. Install it with "
-                "'pip install pyautogui', or use the Files tab instead."
+                "Desktop control requires PyAutoGUI and an active graphical desktop "
+                f"session. Install pyautogui and run ZUZZ in your logged-in desktop. Details: {exc}"
             ) from exc
         self._gui = pyautogui
         self._gui.FAILSAFE = failsafe

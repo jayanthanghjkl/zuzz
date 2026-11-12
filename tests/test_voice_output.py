@@ -23,24 +23,18 @@ class TestTTSGeneratesAudio:
     @pytest.mark.asyncio
     async def test_tts_engine_init(self):
         """Test TTS engine initialization."""
-        try:
-            engine = TTSEngine(engine="piper")
-            # May fail if Piper not fully set up
-        except Exception:
-            # Expected if voices not available
-            pass
+        from brain.broca_area.tts_engine import TTSError
+        with pytest.raises(TTSError, match="Piper requires"):
+            TTSEngine(engine="piper", voice_id="/nonexistent-zuzz-model.onnx")
 
     @pytest.mark.asyncio
-    async def test_tts_synthesize(self):
-        """Test text synthesis."""
+    async def test_tts_synthesize(self, monkeypatch):
+        """The async adapter must await the backend, not swallow synthesis errors."""
         engine = TTSEngine(engine="edge")
-        # Edge TTS should work without local models
-        try:
-            result = engine.synthesize("Hello world")
-            assert isinstance(result, str)
-        except Exception:
-            # May fail without network
-            pass
+        backend = AsyncMock(return_value="generated.mp3")
+        monkeypatch.setattr(engine, "_synthesize_edge", backend)
+        assert await engine.synthesize_async("Hello world") == "generated.mp3"
+        backend.assert_awaited_once_with("Hello world", None)
 
 
 class TestDifferentVoicesAvailable:
@@ -171,6 +165,10 @@ class TestStreamingSpeechStartsBeforeTextComplete:
     async def test_speak_stream(self):
         """Test streaming speech from text generator."""
         engine = Mock(spec=TTSEngine)
+        audio = asyncio.Queue()
+        await audio.put(b"audio")
+        await audio.put(None)
+        engine.synthesize_streaming = AsyncMock(return_value=audio)
         streaming = StreamingSpeech(tts_engine=engine)
         await streaming.start()
 
@@ -186,6 +184,7 @@ class TestStreamingSpeechStartsBeforeTextComplete:
         await streaming.stop()
 
 
+@pytest.mark.live_audio
 class TestSpeakerPlayback:
     """Test speaker playback."""
 

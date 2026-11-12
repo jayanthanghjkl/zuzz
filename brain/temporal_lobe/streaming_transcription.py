@@ -78,7 +78,7 @@ class StreamingTranscription:
                     segment = self._buffer[:chunk_samples]
                     self._buffer = self._buffer[chunk_samples - overlap_samples:]
 
-                    if is_speech or len(segment) > 0:
+                    if len(segment) > 0:
                         text = await self._transcribe_segment(segment)
                         if text and text != self._last_text:
                             segment_result = TranscriptionSegment(
@@ -99,7 +99,9 @@ class StreamingTranscription:
         try:
             if audio.dtype == np.int16:
                 audio = audio.astype(np.float32) / 32768.0
-            result = await self.whisper.transcribe_async(audio)
+            if not audio.size or float(np.max(np.abs(audio))) < 0.005:
+                return ""
+            result = await self.whisper.transcribe_async(audio, language=self.config.language)
             return result.get("text", "").strip()
         except Exception as e:
             logger.error(f"Transcription error: {e}")
@@ -112,7 +114,7 @@ class StreamingTranscription:
             return ""
         if audio.dtype == np.int16:
             audio = audio.astype(np.float32) / 32768.0
-        result = await self.whisper.transcribe_async(audio)
+        result = await self.whisper.transcribe_async(audio, language=self.config.language)
         return result.get("text", "").strip()
 
     def is_streaming(self) -> bool:

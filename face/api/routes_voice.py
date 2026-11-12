@@ -1,276 +1,166 @@
-"""Voice API routes for hands-free interaction."""
+"""Voice controls use app-scoped services and never advertise stub success."""
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any, Literal
-import logging
 import asyncio
-import json
+import importlib.util
+import logging
 import shutil
+from pathlib import Path
+from typing import Optional
 
-logger = logging.getLogger(__name__)
+from fastapi import APIRouter, HTTPException, Request, WebSocket
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
+
+from .voice_support import authorize, component
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
-
-# Global references (will be set by server.py)
-temporal_lobe = None
-broca_area = None
-reticular_formation = None
-
-
-def check_command_exists(cmd: str) -> bool:
-    return shutil.which(cmd) is not None
-
-
-def get_tts_engine_status() -> str:
-    if check_command_exists("piper"):
-        return "piper"
-    if check_command_exists("edge-tts") or check_command_exists("edge_tts"):
-        return "edge"
-    return "offline"
-
-
-def get_whisper_model_status() -> str:
-    try:
-        import whisper
-        return "tiny"
-    except ImportError:
-        return "unavailable"
+logger = logging.getLogger(__name__)
 
 
 class ListenStartRequest(BaseModel):
+    """Server-microphone request, separate from browser recording."""
     language: Optional[str] = None
     vad_enabled: bool = True
+    confirmation_id: str = ""
 
 
 class SpeakRequest(BaseModel):
-    text: str
+    """Bounded speech request; output is playable audio, not a local path."""
+    text: str = Field(min_length=1, max_length=8000)
     emotion: str = "neutral"
     voice_id: Optional[str] = None
 
 
 class SetVoiceRequest(BaseModel):
+    """An engine voice selection."""
     voice_id: str
 
 
-class SetEmotionRequest(BaseModel):
-    emotion: str
-
-
 class WakeWordRequest(BaseModel):
-    keywords: Optional[List[str]] = None
-
-
-@router.post("/listen/start")
-async def start_listening(request: ListenStartRequest) -> Dict[str, Any]:
-    """Start voice input mode."""
-    try:
-        if not temporal_lobe:
-            raise HTTPException(status_code=503, detail="Temporal lobe not initialized")
-
-        from brain.temporal_lobe.audio_capture import CaptureConfig
-        config = CaptureConfig(
-            language=request.language,
-            vad_enabled=request.vad_enabled,
-        )
-
-        session_id = await temporal_lobe.start_listening(
-            decision={},
-            config=config,
-        )
-
-        return {"session_id": session_id, "status": "listening"}
-    except Exception as e:
-        logger.error(f"Start listening failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/listen/stop")
-async def stop_listening(session_id: str) -> Dict[str, Any]:
-    """Stop voice input mode."""
-    try:
-        if not temporal_lobe:
-            raise HTTPException(status_code=503, detail="Temporal lobe not initialized")
-
-        text = await temporal_lobe.stop_listening(decision={}, session_id=session_id)
-        return {"session_id": session_id, "text": text, "status": "stopped"}
-    except Exception as e:
-        logger.error(f"Stop listening failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/speak")
-async def speak(request: SpeakRequest) -> Dict[str, Any]:
-    """Convert text to speech with graceful degradation for offline TTS."""
-    try:
-        # Check if TTS engine is available
-        tts_engine = get_tts_engine_status()
-        if tts_engine == "offline":
-            return {
-                "status": "tts_unavailable",
-                "message": "TTS engine (Piper/Edge) not detected on system",
-                "text": request.text,
-            }
-
-        if not broca_area:
-            raise HTTPException(status_code=503, detail="Broca's area not initialized")
-
-        from brain.broca_area.emotion_tone import Emotion
-        emotion = Emotion(request.emotion)
-
-        audio_file = await broca_area.speak(
-            decision={},
-            text=request.text,
-            emotion=emotion,
-            voice_id=request.voice_id,
-        )
-
-        return {"audio_file": audio_file, "status": "spoken"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Speak failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/interrupt")
-async def interrupt_speaking() -> Dict[str, Any]:
-    """Interrupt current speech."""
-    try:
-        if not broca_area:
-            raise HTTPException(status_code=503, detail="Broca's area not initialized")
-
-        await broca_area.stop_speaking(decision={})
-        return {"status": "interrupted"}
-    except Exception as e:
-        logger.error(f"Interrupt failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    """Optional configured server wake detector request."""
+    keywords: Optional[list[str]] = None
+    confirmation_id: str = ""
 
 
 @router.get("/status")
-async def get_status() -> Dict[str, Any]:
-    """Get voice system status with graceful degradation for offline components."""
+async def get_status(request: Request) -> dict:
+    """Report installed/configured services without downloading models."""
+    tl = getattr(request.app.state, "temporal_lobe", None)
+    ba = getattr(request.app.state, "broca_area", None)
+    rf = getattr(request.app.state, "reticular_formation", None)
+    return {
+        "listening": {"active_sessions": tl.get_active_sessions()} if tl else False,
+        "speaking": ba.get_status() if ba else False,
+        "wake_word": rf.get_status() if rf else False,
+        "tts_engine": ba.tts.engine if ba else "unavailable",
+        "whisper_model": "configured (loaded on first use)" if tl and importlib.util.find_spec("whisper") else "unavailable: install requirements-voice.txt",
+        "ffmpeg": bool(shutil.which("ffmpeg")),
+        "desktop_error": getattr(request.app.state, "desktop_error", ""),
+        "browser_audio": "Browser recognition/synthesis depend on browser support; recording upload requires Whisper and ffmpeg",
+    }
+
+
+@router.post("/listen/start")
+async def start_listening(payload: ListenStartRequest, request: Request) -> dict:
+    """Start real server capture only after a gate decision and any approval."""
+    tl = component(request, "temporal_lobe")
+    decision = authorize(request, "voice_input", f"listen:{payload.language}:{payload.vad_enabled}", payload.confirmation_id)
+    if isinstance(decision, JSONResponse):
+        return decision
+    from brain.temporal_lobe.audio_capture import CaptureConfig
     try:
-        status = {}
-
-        # Listening status
-        if temporal_lobe:
-            status["listening"] = {
-                "active_sessions": temporal_lobe.get_active_sessions(),
-            }
-        else:
-            status["listening"] = False
-
-        # Speaking status
-        if broca_area:
-            status["speaking"] = broca_area.get_status()
-        else:
-            status["speaking"] = False
-
-        # Wake word status
-        if reticular_formation:
-            status["wake_word"] = reticular_formation.get_status()
-        else:
-            status["wake_word"] = False
-
-        # TTS engine status
-        status["tts_engine"] = get_tts_engine_status()
-
-        # Whisper model status
-        status["whisper_model"] = get_whisper_model_status()
-
-        return status
-    except Exception as e:
-        logger.error(f"Get status failed: {e}")
-        # Return degraded status instead of 500
-        return {
-            "listening": False,
-            "speaking": False,
-            "wake_word": False,
-            "tts_engine": "offline",
-            "whisper_model": "unavailable",
-        }
+        session = await tl.start_listening(decision, CaptureConfig(language=payload.language, vad_enabled=payload.vad_enabled))
+        return {"session_id": session, "status": "listening"}
+    except Exception as exc:
+        raise HTTPException(503, f"Could not start microphone: {exc}") from exc
 
 
-@router.post("/wake-word/enable")
-async def enable_wake_word(request: WakeWordRequest) -> Dict[str, Any]:
-    """Enable wake word detection."""
+@router.post("/listen/stop")
+async def stop_listening(session_id: str, request: Request) -> dict:
+    """Stop is always permitted so an unavailable gate cannot trap recording."""
+    tl = component(request, "temporal_lobe")
+    text = await tl.stop_listening(None, session_id)
+    return {"session_id": session_id, "text": text, "status": "stopped"}
+
+
+@router.post("/speak")
+async def speak(payload: SpeakRequest, request: Request) -> FileResponse:
+    """Synthesize and deliver actual audio bytes, deleting them after delivery."""
+    ba = component(request, "broca_area")
+    decision = authorize(request, "voice_output", "synthesize speech")
+    if isinstance(decision, JSONResponse):
+        return decision
     try:
-        if not reticular_formation:
-            raise HTTPException(status_code=503, detail="Reticular formation not initialized")
+        path = await ba.speak(decision, payload.text, payload.emotion, payload.voice_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Speech generation failed")
+        raise HTTPException(503, f"Speech generation unavailable: {exc}") from exc
+    if request.app.state.kill_switch.is_killed():
+        Path(path).unlink(missing_ok=True)
+        raise HTTPException(409, "Kill switch engaged during speech generation")
+    media_type = "audio/mpeg" if str(path).endswith(".mp3") else "audio/wav"
+    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"},
+                        background=BackgroundTask(Path(path).unlink, missing_ok=True))
 
-        await reticular_formation.start_wake_word_detection(decision={})
-        return {"status": "wake_word_enabled"}
-    except Exception as e:
-        logger.error(f"Enable wake word failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
-
-@router.post("/wake-word/disable")
-async def disable_wake_word() -> Dict[str, Any]:
-    """Disable wake word detection."""
-    try:
-        if not reticular_formation:
-            raise HTTPException(status_code=503, detail="Reticular formation not initialized")
-
-        await reticular_formation.stop_wake_word_detection(decision={})
-        return {"status": "wake_word_disabled"}
-    except Exception as e:
-        logger.error(f"Disable wake word failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+@router.post("/interrupt")
+async def interrupt_speaking(request: Request) -> dict:
+    """Cancel synthesis; the browser also stops its playback immediately."""
+    ba = component(request, "broca_area")
+    await ba.stop_speaking(None)
+    return {"status": "interrupted"}
 
 
 @router.get("/available-voices")
-async def get_available_voices() -> Dict[str, Any]:
-    """Get available TTS voices."""
-    try:
-        if not broca_area:
-            raise HTTPException(status_code=503, detail="Broca's area not initialized")
-
-        voices = broca_area.get_available_voices()
-        return {"voices": voices}
-    except Exception as e:
-        logger.error(f"Get voices failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+async def get_available_voices(request: Request) -> dict:
+    """List only the configured backend, without remote discovery at startup."""
+    ba = getattr(request.app.state, "broca_area", None)
+    return {"voices": await asyncio.to_thread(ba.get_available_voices) if ba else []}
 
 
 @router.post("/set-voice")
-async def set_voice(request: SetVoiceRequest) -> Dict[str, Any]:
-    """Set active TTS voice."""
-    try:
-        if not broca_area:
-            raise HTTPException(status_code=503, detail="Broca's area not initialized")
+async def set_voice(payload: SetVoiceRequest, request: Request) -> dict:
+    """Change the configured backend voice after authorization."""
+    ba = component(request, "broca_area")
+    decision = authorize(request, "voice_output", "set voice")
+    if isinstance(decision, JSONResponse):
+        return decision
+    success = await asyncio.to_thread(ba.set_voice, payload.voice_id)
+    if not success:
+        raise HTTPException(400, "Unsupported voice")
+    return {"voice_id": payload.voice_id, "success": True}
 
-        success = broca_area.set_voice(request.voice_id)
-        return {"voice_id": request.voice_id, "success": success}
-    except Exception as e:
-        logger.error(f"Set voice failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/wake-word/{operation}")
+async def wake_word(operation: str, payload: WakeWordRequest, request: Request) -> dict:
+    """Refuse missing hardware/model configuration instead of claiming enabled."""
+    if operation not in ("enable", "disable"):
+        raise HTTPException(404, "Unknown wake-word operation")
+    rf = component(request, "reticular_formation")
+    if operation == "disable":
+        await rf.stop_wake_word_detection(None)
+        return {"status": "wake_word_disabled"}
+    if rf.wake_word is None:
+        raise HTTPException(503, "Wake word requires a configured Porcupine access key and keyword model; use push-to-talk")
+    decision = authorize(request, "wake_word_control", "enable wake word", payload.confirmation_id)
+    if isinstance(decision, JSONResponse):
+        return decision
+    await rf.start_wake_word_detection(decision)
+    if not rf.wake_word.is_listening():
+        raise HTTPException(503, "Wake detector did not start")
+    return {"status": "wake_word_enabled"}
 
 
-# WebSocket for real-time audio streaming
 @router.websocket("/stream")
-async def voice_stream(websocket: WebSocket):
-    """WebSocket for real-time voice streaming."""
+async def voice_stream(websocket: WebSocket) -> None:
+    """Explicitly retire the acknowledgement-only protocol; use recording upload."""
     await websocket.accept()
-    logger.info("Voice WebSocket connected")
-
-    try:
-        while True:
-            data = await websocket.receive_bytes()
-            # Process audio chunk
-            # This would integrate with temporal_lobe for streaming transcription
-            await websocket.send_json({"status": "received", "size": len(data)})
-    except WebSocketDisconnect:
-        logger.info("Voice WebSocket disconnected")
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-        await websocket.close()
+    await websocket.send_json({"type": "error", "content": "Use POST /api/voice/transcribe with a complete recording; live audio streaming is not implemented"})
+    await websocket.close(code=1003)
 
 
-def set_dependencies(tl, ba, rf):
-    """Set module dependencies."""
-    global temporal_lobe, broca_area, reticular_formation
-    temporal_lobe = tl
-    broca_area = ba
-    reticular_formation = rf
+def set_dependencies(tl, ba, rf) -> None:
+    """Compatibility hook; dependencies now live on request.app.state only."""

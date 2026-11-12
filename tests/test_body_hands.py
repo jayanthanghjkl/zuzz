@@ -865,7 +865,7 @@ class TestApplicationLocation:
         assert "cmd.exe" not in KNOWN_APP_PATHS
         assert locate("cmd.exe") == "cmd.exe"
 
-    def test_chrome_resolves_to_an_installed_path(self) -> None:
+    def test_chrome_resolves_to_an_installed_path(self, tmp_path, monkeypatch) -> None:
         """Chrome is found at its real install location, not left as ``chrome.exe``.
 
         Found in Session 13 live verification: "Open Chrome" resolved to the bare
@@ -875,8 +875,14 @@ class TestApplicationLocation:
         """
         from body.hands.app_registry import resolve_app
 
-        chrome = os.environ.get("ProgramFiles", r"C:\Program Files")
-        expected = os.path.join(chrome, "Google", "Chrome", "Application", "chrome.exe")
+        # Test install-path discovery, not whether the test runner owns Chrome.
+        from body.hands import app_registry
+        from pathlib import Path
+        expected = str(tmp_path / "Google" / "Chrome" / "Application" / "chrome.exe")
+        Path(expected).parent.mkdir(parents=True)
+        Path(expected).touch()
+        monkeypatch.setattr(app_registry.shutil, "which", lambda name: None)
+        monkeypatch.setitem(app_registry.KNOWN_APP_PATHS, "chrome.exe", [expected])
 
         resolved = resolve_app("chrome")
         assert resolved["whitelisted"] is True

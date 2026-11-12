@@ -1,5 +1,21 @@
-﻿--
+## [2026-11-11] Functional repairs: chat/actions, native paths and browser voice
+
+- Repaired streaming routing/fallback and action/completion ordering; awaited tool results, surfaced failures and prevented automatic replay after partial output. Cosmetic enhancement no longer alters executable protocol or blocks completed tasks.
+- Repaired native POSIX paths and root/credential protection, retained Windows lexical safety and used runtime OS/home in prompts.
+- Implemented explicit voice permission rows, single-use bound consent, upload/decode/transcription, playable async TTS responses and stop propagation. Lazy optional audio imports permit honest headless startup.
+- Reworked browser chat/voice lifecycle, displayed real results/errors and prevented service-worker API caching. Added operational readiness reporting; inference is explicitly not certified by configuration detection.
+- Removed nested-loop tool execution and fabricated email scheduling/inbox/quiet-hour successes. Optional communication integrations still need live configuration validation.
+- Fixed installability on Python 3.11, declared Edge TTS/croniter and separated optional Whisper/Piper dependencies. Added deterministic regressions and CI, with physical-audio tests explicitly opt-in.
+- Setup, reproduction commands and limitations: `docs/CORE_FIXES_AND_VALIDATION.md`. Final local verification: **1,635 Python tests passed, 9 physical-audio tests skipped; 10 JavaScript contract tests passed**. Compile, dependency and diff checks passed; no live model, browser microphone, remote TTS, desktop or hardware certification is claimed.
+
+--
  
+## [2026-11-11] Repository review and desk-assistant integration proposal
+
+- Added `docs/DESK_ASSISTANT_REVIEW.md`: prioritized findings, validation limits, Neo ESP32-S3 reference analysis, ESP8266 constraints, and a proposed authenticated hardware protocol and staged audio integration.
+- Focused validation: 126 tests passed and 3 existing credential-path classification tests failed on Linux. Isolated voice-route checks reproduced the unsupported `CaptureConfig.language` error, 503-to-500 error wrapping, and acknowledgement-only audio WebSocket.
+- No application behavior or firmware was changed. Full dependency installation, full-suite execution, live inference and physical hardware validation remain outstanding.
+
 ## [2026-10-12] Phase 7 — Mirror Neurons & Multi-Agent Orchestration (ZUZZ v1.0.0)
  
 ### Added

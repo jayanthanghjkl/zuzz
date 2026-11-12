@@ -144,3 +144,14 @@ def kill_switch_app(tmp_path: Path):
         if gate is not None:
             gate.kill_switch = switch
     return app
+
+
+def pytest_collection_modifyitems(config, items):
+    """Keep physical-audio tests opt-in; skipping is not a passing hardware claim."""
+    import os
+    if os.getenv("ZUZZ_TEST_LIVE_AUDIO") == "1":
+        return
+    skip = pytest.mark.skip(reason="Live microphone/speaker/model test: set ZUZZ_TEST_LIVE_AUDIO=1 on an audio-equipped host")
+    for item in items:
+        if item.get_closest_marker("live_audio"):
+            item.add_marker(skip)

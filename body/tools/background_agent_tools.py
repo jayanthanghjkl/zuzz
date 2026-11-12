@@ -23,15 +23,14 @@ def _resolve_agent_deploy(params: Dict[str, Any], context: ToolContext) -> ToolT
     )
 
 
-def _execute_agent_deploy(
+async def _execute_agent_deploy(
     decision: Any, params: Dict[str, Any], context: ToolContext
 ) -> Any:
     manager = getattr(context, "agent_manager", None)
     if manager is None:
         return {"error": "agent manager not attached"}
-    import asyncio
     config = {"agent_type": params["agent_type"], "name": params.get("name", params["agent_type"])}
-    agent_id = asyncio.get_event_loop().run_until_complete(manager.deploy_agent(config))
+    agent_id = await manager.deploy_agent(config)
     return {"agent_id": agent_id}
 
 
@@ -46,14 +45,13 @@ def _resolve_agent_stop(params: Dict[str, Any], context: ToolContext) -> ToolTar
     )
 
 
-def _execute_agent_stop(
+async def _execute_agent_stop(
     decision: Any, params: Dict[str, Any], context: ToolContext
 ) -> Any:
     manager = getattr(context, "agent_manager", None)
     if manager is None:
         return {"error": "agent manager not attached"}
-    import asyncio
-    return asyncio.get_event_loop().run_until_complete(manager.stop_agent(params["agent_id"]))
+    return await manager.stop_agent(params["agent_id"])
 
 
 def _resolve_agent_list(params: Dict[str, Any], context: ToolContext) -> ToolTarget:
@@ -83,16 +81,13 @@ def _resolve_agent_schedule(params: Dict[str, Any], context: ToolContext) -> Too
     )
 
 
-def _execute_agent_schedule(
+async def _execute_agent_schedule(
     decision: Any, params: Dict[str, Any], context: ToolContext
 ) -> Any:
     manager = getattr(context, "agent_manager", None)
     if manager is None:
         return {"error": "agent manager not attached"}
-    import asyncio
-    return asyncio.get_event_loop().run_until_complete(
-        manager.schedule_agent(params["agent_id"], params["cron_expression"])
-    )
+    return await manager.schedule_agent(params["agent_id"], params["cron_expression"])
 
 
 def _resolve_agent_get_results(params: Dict[str, Any], context: ToolContext) -> ToolTarget:
@@ -125,15 +120,14 @@ def _resolve_agent_create_custom(params: Dict[str, Any], context: ToolContext) -
     )
 
 
-def _execute_agent_create_custom(
+async def _execute_agent_create_custom(
     decision: Any, params: Dict[str, Any], context: ToolContext
 ) -> Any:
     manager = getattr(context, "agent_manager", None)
     if manager is None:
         return {"error": "agent manager not attached"}
-    import asyncio
     config = {"name": params["name"], "agent_type": "custom", "code": params.get("code", "")}
-    agent_id = asyncio.get_event_loop().run_until_complete(manager.deploy_agent(config))
+    agent_id = await manager.deploy_agent(config)
     return {"agent_id": agent_id}
 
 
@@ -146,14 +140,13 @@ def _resolve_agent_sync_now(params: Dict[str, Any], context: ToolContext) -> Too
     )
 
 
-def _execute_agent_sync_now(
+async def _execute_agent_sync_now(
     decision: Any, params: Dict[str, Any], context: ToolContext
 ) -> Any:
     manager = getattr(context, "agent_manager", None)
     if manager is None:
         return {"error": "agent manager not attached"}
-    import asyncio
-    return asyncio.get_event_loop().run_until_complete(manager.sync_agent_results(params["agent_id"]))
+    return await manager.sync_agent_results(params["agent_id"])
 
 
 BACKGROUND_AGENT_TOOLS: tuple = (

@@ -1,6 +1,9 @@
 """Speaker - Audio playback via sounddevice."""
 
-import sounddevice as sd
+try:
+    import sounddevice as sd
+except (ImportError, OSError):
+    sd = None
 import numpy as np
 import asyncio
 import threading
@@ -10,6 +13,10 @@ from typing import Optional, Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+class SpeakerError(RuntimeError):
+    """Local audio playback failed."""
 
 
 class Speaker:
@@ -37,6 +44,8 @@ class Speaker:
 
     def list_devices(self) -> list:
         """List available audio output devices."""
+        if sd is None:
+            raise RuntimeError("Local audio requires sounddevice and the PortAudio system library")
         devices = sd.query_devices()
         output_devices = []
         for i, device in enumerate(devices):
@@ -123,6 +132,8 @@ class Speaker:
         """Stop playback and clear queue."""
         self._stop_event.set()
         self._is_playing = False
+        if sd is not None:
+            sd.stop()
         while not self._playback_queue.empty():
             try:
                 self._playback_queue.get_nowait()

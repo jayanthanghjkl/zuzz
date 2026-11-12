@@ -1,5 +1,7 @@
 """LiveKit bridge for real-time WebRTC voice communication."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import numpy as np

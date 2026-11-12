@@ -139,7 +139,7 @@ def _same_target(granted: str, acted_on: str) -> bool:
     resolved = normalise(acted_on)
     if approved == resolved:
         return True
-    return resolved.startswith(approved + os.sep)
+    return resolved.startswith(approved + "\\")
 
 
 def resolve_target(path: str, logger: Optional[Any] = None) -> str:

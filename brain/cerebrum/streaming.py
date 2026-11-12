@@ -63,6 +63,8 @@ class CerebrumStreaming:
             source = self._stream_local(message, messages, level)  # type: ignore[attr-defined]
 
         async for fragment in source:
+            if self.gate.stopped_reason():
+                self._check_may_infer(message, level)
             collected.append(fragment)
 
             # Emit thinking event if enhancer is available
