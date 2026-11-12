@@ -48,12 +48,9 @@ from body.mouth.kilo import (
     Terminal,
 )
 from core.audit import get_audit_log
-from core.config import ROOT, get_settings
+from core.config import ROOT, env, get_settings
 from brain.communication_hub.hub import CommunicationHub
 from brain.background_agents.agent_manager import AgentManager
-from brain.temporal_lobe.temporal_lobe import TemporalLobe
-from brain.broca_area.broca_area import BrocaArea
-from brain.reticular_formation.reticular_formation import ReticularFormation
 from face.api import (
     routes_assess,
     routes_brain,
@@ -71,10 +68,12 @@ from face.api import (
     routes_personality,
     routes_plugins,
     routes_resources,
+    routes_readiness,
     routes_safety,
     routes_settings,
     routes_vision,
     routes_voice,
+    routes_voice_media,
     routes_background,
     routes_agents,
 )
@@ -206,10 +205,19 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     # signals count what ZUZZ did rather than what the user did. The kill switch
     # is passed explicitly rather than left to the Hands default so that the
     # app's switch and the Body's switch are provably the same object.
-    app.state.hands = Hands(
-        kill_switch=app.state.kill_switch,
-        logger=app.state.logger,
-    )
+    app.state.desktop_error = ""
+    try:
+        app.state.hands = Hands(
+            kill_switch=app.state.kill_switch, logger=app.state.logger,
+        )
+    except Exception as exc:
+        from body.hands.unavailable import UnavailableActuator
+        app.state.desktop_error = str(exc)
+        app.state.logger.log("body", "desktop_unavailable", error=str(exc))
+        app.state.hands = Hands(
+            actuator=UnavailableActuator(str(exc)),
+            kill_switch=app.state.kill_switch, logger=app.state.logger,
+        )
     # Confirmations are prompts, not contracts: they live in memory
     # only, so a restart cannot turn an unanswered popup into an
     # approval.
@@ -379,18 +387,21 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     # Wrapped defensively so missing audio devices or optional dependencies
     # do not prevent the rest of the server from starting.
     try:
-        app.state.temporal_lobe = TemporalLobe()
+        from brain.temporal_lobe.temporal_lobe import TemporalLobe
+        app.state.temporal_lobe = TemporalLobe(whisper_model=env("WHISPER_MODEL", "tiny"), device=env("WHISPER_DEVICE", "cpu"), kill_switch=app.state.kill_switch)
     except Exception as exc:
         app.state.logger.log("brain", "temporal_lobe_init_failed", error=str(exc))
         app.state.temporal_lobe = None
 
     try:
-        app.state.broca_area = BrocaArea()
+        from brain.broca_area.broca_area import BrocaArea
+        app.state.broca_area = BrocaArea(default_engine=env("TTS_ENGINE", "edge"), default_voice=env("TTS_VOICE", "") or None, kill_switch=app.state.kill_switch)
     except Exception as exc:
         app.state.logger.log("brain", "broca_area_init_failed", error=str(exc))
         app.state.broca_area = None
 
     try:
+        from brain.reticular_formation.reticular_formation import ReticularFormation
         app.state.reticular_formation = ReticularFormation()
     except Exception as exc:
         app.state.logger.log("brain", "reticular_formation_init_failed", error=str(exc))
@@ -420,6 +431,7 @@ def create_app(memory_dir: Path = None) -> FastAPI:
 
     app.include_router(routes_chat.router)
     app.include_router(routes_brain.router)
+    app.include_router(routes_readiness.router)
     app.include_router(routes_settings.router)
     app.include_router(routes_plugins.router)
     app.include_router(routes_safety.router)
@@ -430,6 +442,7 @@ def create_app(memory_dir: Path = None) -> FastAPI:
     app.include_router(routes_resources.router)
     app.include_router(routes_vision.router)
     app.include_router(routes_voice.router)
+    app.include_router(routes_voice_media.router)
     app.include_router(routes_browser.router)
     app.include_router(routes_memory.router)
     app.include_router(routes_habits.router)

@@ -22,16 +22,13 @@ def _resolve_telegram_send(params: Dict[str, Any], context: ToolContext) -> Tool
     )
 
 
-def _execute_telegram_send(
+async def _execute_telegram_send(
     decision: Any, params: Dict[str, Any], context: ToolContext
 ) -> Any:
     hub = getattr(context, "communication_hub", None)
     if hub is None:
         return {"error": "communication hub not attached"}
-    import asyncio
-    return asyncio.get_event_loop().run_until_complete(
-        hub.send_telegram(params["message"])
-    )
+    return await hub.send_telegram(params["message"])
 
 
 def _resolve_telegram_file(params: Dict[str, Any], context: ToolContext) -> ToolTarget:
@@ -45,16 +42,13 @@ def _resolve_telegram_file(params: Dict[str, Any], context: ToolContext) -> Tool
     )
 
 
-def _execute_telegram_file(
+async def _execute_telegram_file(
     decision: Any, params: Dict[str, Any], context: ToolContext
 ) -> Any:
     hub = getattr(context, "communication_hub", None)
     if hub is None:
         return {"error": "communication hub not attached"}
-    import asyncio
-    return asyncio.get_event_loop().run_until_complete(
-        hub._telegram.send_file("", params["file_path"], params.get("caption", ""))
-    )
+    return await hub._telegram.send_file("", params["file_path"], params.get("caption", ""))
 
 
 def _resolve_telegram_approval(params: Dict[str, Any], context: ToolContext) -> ToolTarget:
@@ -66,16 +60,13 @@ def _resolve_telegram_approval(params: Dict[str, Any], context: ToolContext) -> 
     )
 
 
-def _execute_telegram_approval(
-    decision: Any, params: Dict[str, Any], context: ToolSpec
+async def _execute_telegram_approval(
+    decision: Any, params: Dict[str, Any], context: ToolContext
 ) -> Any:
     hub = getattr(context, "communication_hub", None)
     if hub is None:
         return {"error": "communication hub not attached"}
-    import asyncio
-    return asyncio.get_event_loop().run_until_complete(
-        hub.request_approval(params["action"], params.get("timeout_seconds", 300))
-    )
+    return await hub.request_approval(params["action"], params.get("timeout_seconds", 300))
 
 
 def _resolve_email_send(params: Dict[str, Any], context: ToolContext) -> ToolTarget:
@@ -114,6 +105,11 @@ def _execute_push_send(
     return hub.send_push(params["title"], params["message"], priority=params.get("priority", "normal"))
 
 
+def _unsupported_operation(decision: Any, params: Dict[str, Any], context: ToolContext) -> Any:
+    """Never claim scheduling/inbox access before those implementations exist."""
+    raise ToolRefused("This operation is not implemented; no changes were made")
+
+
 COMMUNICATION_TOOLS: tuple = (
     ToolSpec(
         name="telegram_send_message",
@@ -147,14 +143,14 @@ COMMUNICATION_TOOLS: tuple = (
         name="email_schedule_briefing",
         summary="Schedule a daily email briefing",
         resolve=lambda p, c: ToolTarget(category=str(ActionCategory.SEND_MESSAGES), target="email_briefing"),
-        execute=lambda d, p, c: {"scheduled": True},
+        execute=_unsupported_operation,
         returns="Schedule result",
     ),
     ToolSpec(
         name="email_check_inbox",
         summary="Check email inbox",
         resolve=lambda p, c: ToolTarget(category=str(ActionCategory.SEND_MESSAGES), target="email_inbox"),
-        execute=lambda d, p, c: {"emails": []},
+        execute=_unsupported_operation,
         returns="Inbox result",
     ),
     ToolSpec(
@@ -168,7 +164,7 @@ COMMUNICATION_TOOLS: tuple = (
         name="push_set_quiet_hours",
         summary="Set push quiet hours",
         resolve=lambda p, c: ToolTarget(category=str(ActionCategory.SEND_MESSAGES), target="push_quiet_hours"),
-        execute=lambda d, p, c: {"set": True},
+        execute=_unsupported_operation,
         returns="Set result",
     ),
 )

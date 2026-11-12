@@ -82,7 +82,7 @@ def is_inside(path: str, root: str) -> bool:
     """
     target = normalise(os.path.abspath(str(path)))
     base = normalise(os.path.abspath(str(root)))
-    return target == base or target.startswith(base + os.sep)
+    return target == base or target.startswith(base + "\\")
 
 
 @dataclass(frozen=True)

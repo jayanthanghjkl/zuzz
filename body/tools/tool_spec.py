@@ -117,6 +117,8 @@ class ToolContext:
     kilo: Any = None
     mirror_neurons: Any = None
     multi_agent_orchestrator: Any = None
+    communication_hub: Any = None
+    agent_manager: Any = None
     write_decision: Any = None
 
 

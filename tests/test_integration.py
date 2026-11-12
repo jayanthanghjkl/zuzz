@@ -246,7 +246,9 @@ def test_websocket_streams_tokens_then_done(client: TestClient) -> None:
             events.append(event)
             if event["type"] in ("done", "error"):
                 break
-    assert [e["type"] for e in events[:-1]] == ["token", "token"]
+    assert [e["type"] for e in events if e["type"] == "token"] == ["token", "token"]
+    assert events[-1]["prose"] == "stub stream"
+    assert sum(e["type"] == "done" for e in events) == 1
     assert events[-1]["type"] == "done"
 
 

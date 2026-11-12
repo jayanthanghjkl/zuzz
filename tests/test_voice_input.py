@@ -18,6 +18,7 @@ from body.ears.vad import VoiceActivityDetector
 from body.ears.exceptions import MicrophoneError, AudioStreamError, VADError
 
 
+@pytest.mark.live_audio
 class TestMicrophoneCaptureRequiresPermission:
     """Test microphone capture permission handling."""
 
@@ -45,6 +46,7 @@ class TestMicrophoneCaptureRequiresPermission:
         assert isinstance(chunk, np.ndarray)
 
 
+@pytest.mark.live_audio
 class TestWhisperTranscribesAudioFile:
     """Test Whisper transcription."""
 
@@ -52,6 +54,7 @@ class TestWhisperTranscribesAudioFile:
     async def test_whisper_engine_load(self):
         """Test Whisper model loads."""
         engine = WhisperEngine(model_name="tiny")
+        engine._load_model()
         assert engine.is_loaded()
 
     @pytest.mark.asyncio

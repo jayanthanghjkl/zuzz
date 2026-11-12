@@ -202,6 +202,9 @@
     "observe_user":         {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
     "create_macro":         {"1": "ask",     "2": "ask",     "3": "ask",     "4": "auto",    "5": "auto"},
     "deploy_agent_team":    {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "voice_input":          {"1": "ask",     "2": "ask",     "3": "auto",    "4": "auto",    "5": "auto"},
+    "voice_output":         {"1": "auto",    "2": "auto",    "3": "auto",    "4": "auto",    "5": "auto"},
+    "wake_word_control":    {"1": "ask",     "2": "ask",     "3": "ask",     "4": "ask",     "5": "ask"},
     "response_enhancement": {"1": "auto",    "2": "auto",    "3": "auto",    "4": "auto",    "5": "auto"}
   },
   "policy": {

@@ -21,6 +21,7 @@
   let finishedBubble = null;
   let startedAt = 0;
   let stopped = false;
+  let busy = false;
 
   /* Answer a confirmation and settle the row the user clicked. The outcome —
      executed, or blocked again by a fresh decision — replaces the buttons, so a
@@ -77,6 +78,12 @@
 
   function onSocketStatus(payload) {
     setConnection(payload.state);
+    if (payload.state !== "open" && busy) {
+      if (activeBubble) chat.finish(activeBubble, {});
+      chat.addError("Connection lost. The turn may be incomplete; check action results before retrying.");
+      activeBubble = null;
+      setBusy(false);
+    }
   }
 
   function onBrainEvent(event) {
@@ -107,6 +114,7 @@
       );
     } else if (event.type === "done") {
       const ms = startedAt ? Math.round(performance.now() - startedAt) : undefined;
+      if (activeBubble && typeof event.prose === "string") chat.setProse(activeBubble, event.prose);
       chat.finish(activeBubble || chat.addBot(), {
         level: event.streamed_level || event.level,
         ms: ms,
@@ -120,8 +128,8 @@
       levelBadge.textContent = "L" + event.level;
       hint.textContent = event.reason || "Streaming via WebSocket";
       if (activeBubble) {
-        /* Held rather than cleared: the actions event arrives next and needs the
-           same bubble to hang its badges off. */
+        /* Keep the completed bubble available to subsequent presentation events.
+           Action outcomes have already settled before this completion. */
         finishedBubble = activeBubble;
       }
       setBusy(false);
@@ -148,8 +156,9 @@
       setBusy(false);
     } else if (event.type === "error") {
       if (activeBubble) {
-        chat.appendText(activeBubble, "");
+        chat.finish(activeBubble, {});
         activeBubble = null;
+        chat.addError(event.content);
       } else {
         chat.addError(event.content);
       }
@@ -159,7 +168,8 @@
     }
   }
 
-  function setBusy(busy) {
+  function setBusy(value) {
+    busy = value;
     sendBtn.disabled = busy || stopped;
     input.disabled = stopped;
   }
@@ -170,6 +180,11 @@
   }
 
   function send() {
+    if (busy) return;
+    if (!socket.isOpen()) {
+      hint.textContent = "Not connected yet. Your message has not been sent; try again when live.";
+      return;
+    }
     if (stopped) {
       hint.textContent = "ZUZZ is stopped. Type RESET to restart it.";
       return;
@@ -192,6 +207,8 @@
     if (!socket.send(message, selectedLevel())) {
       chat.appendText(activeBubble, "(message could not be sent)");
       activeBubble = null;
+      setBusy(false);
+      return;
     }
     setBusy(true);
   }
@@ -206,7 +223,9 @@
     try {
       const response = await fetch("/api/brain/status");
       const data = await response.json();
-      statusJson.textContent = JSON.stringify(data, null, 2);
+      const readinessResponse = await fetch("/api/health/readiness", {cache: "no-store"});
+      const readiness = readinessResponse.ok ? await readinessResponse.json() : {notes: ["Readiness check failed"]};
+      statusJson.textContent = JSON.stringify({readiness, ...data}, null, 2);
       if (data.heartbeat) {
         hint.textContent =
           "uptime " + data.heartbeat.uptime_seconds + "s · RAM " +

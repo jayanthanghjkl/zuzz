@@ -216,6 +216,15 @@
         );
       }
 
+      if (status === "executed" && entry.result !== undefined) {
+        const details = document.createElement("details");
+        const label = document.createElement("summary");
+        label.textContent = "Result";
+        const output = document.createElement("pre");
+        output.textContent = typeof entry.result === "string" ? entry.result : JSON.stringify(entry.result, null, 2);
+        details.append(label, output);
+        row.appendChild(details);
+      }
       node.actions.appendChild(row);
       this.scrollToBottom();
       return row;

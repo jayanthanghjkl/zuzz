@@ -20,6 +20,7 @@ Anything else is ``safe``: the project directory itself.
 from __future__ import annotations
 
 import os
+import ntpath
 import re
 import tempfile
 from pathlib import Path
@@ -41,7 +42,7 @@ PROTECTED_PREFIXES = (
     os.environ.get("ProgramData", r"C:\ProgramData"),
     r"C:\$Recycle.Bin",
     r"C:\System Volume Information",
-)
+) + (("/etc", "/usr", "/bin", "/sbin", "/boot", "/dev", "/proc", "/sys", "/root", "/lib", "/lib64") if os.name != "nt" else ())
 
 # Credential files are protected wherever they live, including inside the
 # project directory — `.env` is the API vault's input and must not be readable
@@ -86,7 +87,7 @@ def is_volume_root(path: str) -> bool:
         everything else — including a real subdirectory such as ``C:\\Users``,
         which is ordinary user data and is classified on its own merits.
     """
-    return bool(VOLUME_ROOT_PATTERN.match(_normalise(path)))
+    return str(path).strip() in ("/", "\\") or bool(VOLUME_ROOT_PATTERN.match(_normalise(path)))
 
 
 def _normalise(path: str) -> str:
@@ -110,7 +111,7 @@ def _normalise(path: str) -> str:
     elif text.startswith("\\\\?\\"):
         text = text[4:]
     expanded = os.path.expandvars(os.path.expanduser(text))
-    return os.path.normpath(expanded).replace("/", "\\").lower()
+    return ntpath.normpath(expanded.replace("/", "\\")).lower()
 
 
 def normalise(path: str) -> str:
@@ -145,9 +146,9 @@ def is_protected(path: str) -> bool:
     normalised = _normalise(path)
     if is_volume_root(normalised):
         return True
-    if any(normalised.startswith(prefix) for prefix in _protected_set()):
+    if any((normalised == prefix or normalised.startswith(prefix + "\\")) for prefix in _protected_set()):
         return True
-    return Path(normalised).name in PROTECTED_NAMES
+    return ntpath.basename(normalised) in PROTECTED_NAMES
 
 
 def is_temp(path: str) -> bool:
@@ -169,7 +170,7 @@ def is_temp(path: str) -> bool:
     if not Path(str(path)).is_absolute():
         normalised = _normalise(ROOT / str(path))
     candidates = [_normalise(ROOT / "temp"), _normalise(tempfile.gettempdir())]
-    return any(normalised.startswith(candidate) for candidate in candidates)
+    return any((normalised == candidate or normalised.startswith(candidate + "\\")) for candidate in candidates)
 
 
 def classify(path: str) -> str:
@@ -189,6 +190,6 @@ def classify(path: str) -> str:
         return PROTECTED
     if is_temp(path):
         return TEMP
-    if Path(_normalise(path)).name in CAUTION_NAMES:
+    if ntpath.basename(_normalise(path)) in CAUTION_NAMES:
         return CAUTION
     return SAFE

@@ -11,6 +11,7 @@ from .audio_capture import AudioCapture, CaptureConfig
 from .streaming_transcription import StreamingTranscription, TranscriptionSegment
 from .noise_detection import NoiseDetector
 from .exceptions import TemporalLobeError
+from brain.voice_guards import verify_voice
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,9 @@ class TemporalLobe:
         whisper_model: str = "tiny",
         device: Optional[str] = None,
         language: Optional[str] = None,
+        kill_switch=None,
     ):
+        self.kill_switch = kill_switch
         self.whisper = WhisperEngine(
             model_name=whisper_model,
             device=device,
@@ -53,6 +56,7 @@ class TemporalLobe:
         callback: Optional[Callable[[TranscriptionSegment], None]] = None,
     ) -> str:
         """Start a new listening session."""
+        verify_voice(decision, "voice_input", self.kill_switch)
         session_id = f"listen_{self._session_counter}"
         self._session_counter += 1
 
@@ -64,11 +68,23 @@ class TemporalLobe:
             whisper_engine=self.whisper,
             config=session_config,
         )
-        if callback:
-            streaming.set_callback(callback)
+        def record(segment):
+            session.partial_results.append(segment.text)
+            if callback:
+                callback(segment)
+        streaming.set_callback(record)
 
         session.streaming = streaming
-        await streaming.start()
+        async def consume():
+            async for _ in streaming.stream():
+                verify_voice(decision, "voice_input", self.kill_switch)
+        # Starting must finish successfully before a session is advertised.
+        try:
+            await streaming.start()
+        except Exception:
+            self._sessions.pop(session_id, None)
+            raise
+        session.task = asyncio.create_task(consume())
         logger.info(f"Started listening session: {session_id}")
         return session_id
 
@@ -79,6 +95,12 @@ class TemporalLobe:
             logger.warning(f"Session not found: {session_id}")
             return None
 
+        if hasattr(session, 'task'):
+            session.task.cancel()
+            try:
+                await session.task
+            except asyncio.CancelledError:
+                pass
         if hasattr(session, 'streaming'):
             await session.streaming.stop()
 
@@ -89,8 +111,10 @@ class TemporalLobe:
 
     async def transcribe_file(self, decision: dict, file_path: str) -> str:
         """Transcribe an audio file."""
+        verify_voice(decision, "voice_input", self.kill_switch)
         try:
             text = await self.whisper.transcribe_file_async(file_path)
+            verify_voice(decision, "voice_input", self.kill_switch)
             logger.info(f"Transcribed file: {file_path}")
             return text
         except Exception as e:
@@ -103,13 +127,15 @@ class TemporalLobe:
         callback: Optional[Callable[[TranscriptionSegment], None]] = None,
     ) -> AsyncGenerator[TranscriptionSegment, None]:
         """Stream transcription results in real-time."""
-        session_id = await self.start_listening(decision, callback=callback)
-        session = self._sessions[session_id]
-
+        queue = asyncio.Queue()
+        def receive(segment):
+            queue.put_nowait(segment)
+            if callback:
+                callback(segment)
+        session_id = await self.start_listening(decision, callback=receive)
         try:
-            async for segment in session.streaming.stream():
-                session.partial_results.append(segment.text)
-                yield segment
+            while self.is_listening():
+                yield await queue.get()
         finally:
             await self.stop_listening(decision, session_id)
 
@@ -121,10 +147,12 @@ class TemporalLobe:
         """Get all active session IDs."""
         return list(self._sessions.keys())
 
-    def is_listening(self, session_id: str) -> bool:
+    def is_listening(self, session_id: Optional[str] = None) -> bool:
         """Check if session is active."""
+        if session_id is None:
+            return any(s.is_active and not s.task.done() for s in self._sessions.values())
         session = self._sessions.get(session_id)
-        return session is not None and session.is_active
+        return session is not None and session.is_active and not session.task.done()
 
     def set_noise_profile(self, noise_audio: np.ndarray) -> None:
         """Set noise profile for filtering."""

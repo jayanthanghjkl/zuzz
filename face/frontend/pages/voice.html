@@ -40,8 +40,8 @@
                 </div>
 
                 <div class="control-group">
-                    <h2>Volume Meter</h2>
-                    <div class="volume-meter">
+                    <h2>Speech Input</h2>
+                    <div class="volume-meter" hidden>
                         <div id="volumeBar" class="volume-bar"></div>
                     </div>
                     <p id="volumeStatus" class="control-status">Waiting for input...</p>
@@ -65,7 +65,10 @@
                 </div>
 
                 <div class="control-group">
-                    <h2>Emotion Tone</h2>
+                    <button type="button" onclick="interruptSpeaking()">Stop speaking</button>
+                    <p>Browser voices and recognition depend on browser support. Recognition may use an online speech service. Server recording needs Whisper and ffmpeg.</p>
+                    <a href="/api/health/readiness" target="_blank" rel="noopener">Check backend readiness</a>
+                    <h2>Tone preference (engine-dependent)</h2>
                     <select id="emotionSelect" class="emotion-select">
                         <option value="neutral">Neutral</option>
                         <option value="happy">Happy</option>
@@ -80,7 +83,7 @@
             </section>
 
             <section class="voice-transcription">
-                <h2>Live Transcription</h2>
+                <h2>Transcription</h2>
                 <div id="transcriptionDisplay" class="transcription-display">
                     <p class="placeholder">Transcription will appear here...</p>
                 </div>

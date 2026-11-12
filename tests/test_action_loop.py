@@ -245,11 +245,13 @@ def wired(actuator, switch, launcher, trust) -> Dict[str, Any]:
 
 
 @pytest.fixture
-def client(wired) -> TestClient:
+def client(wired, monkeypatch) -> TestClient:
     """A test client with the internet probe stubbed out."""
     from face.api import routes_chat
 
-    routes_chat._INTERNET_CACHE.update(value=False, checked_at=float("inf"))
+    async def offline():
+        return False
+    monkeypatch.setattr(routes_chat, "internet_available", offline)
     return TestClient(app)
 
 
@@ -483,18 +485,17 @@ def test_action_fence_stripped_from_prose(client, wired) -> None:
         while True:
             event = socket.receive_json()
             events.append(event)
-            if event["type"] == "actions":
+            if event["type"] == "done":
                 break
-    actions_event = events[-1]
+    actions_event = next(e for e in events if e["type"] == "actions")
     assert actions_event["type"] == "actions"
     assert actions_event["prose"] == "Opening Notepad for you."
     assert actions_event["executed"][0]["tool"] == "open_app"
-    # It arrives after done, so the bubble exists to hang the badges off.
-    # New Jarvis enhancement events (mood, variation) may appear between done and actions.
+    # Completion is emitted only after the actions have been settled.
     event_types = [e["type"] for e in events]
     assert event_types[0] == "token", event_types
-    assert event_types[1] == "done", event_types
-    assert event_types[-1] == "actions", event_types
+    assert event_types[-2:] == ["actions", "done"], event_types
+    assert event_types.count("done") == 1
 
 
 # ---------------------------------------------------------------------

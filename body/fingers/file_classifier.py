@@ -19,7 +19,8 @@ needs on its own:
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import ntpath
+from pathlib import Path, PureWindowsPath
 from typing import Any, Dict, Tuple
 
 from core.config import ROOT
@@ -84,7 +85,7 @@ def resolve_symlink(path: str) -> str:
         target = os.readlink(str(path))
     except (OSError, ValueError):
         return _absolute(str(path))
-    if not os.path.isabs(target):
+    if not os.path.isabs(target) and not ntpath.isabs(target):
         target = os.path.join(os.path.dirname(str(path)), target)
     return _absolute(target)
 
@@ -92,7 +93,9 @@ def resolve_symlink(path: str) -> str:
 def _absolute(path: str) -> str:
     """Expand and normalise a path, preserving case."""
     expanded = os.path.expandvars(os.path.expanduser(path))
-    return os.path.normpath(expanded).replace("/", "\\")
+    if ntpath.splitdrive(expanded)[0]:
+        return ntpath.normpath(expanded)
+    return os.path.normpath(expanded.replace("\\", os.sep)) if os.name != "nt" else os.path.normpath(expanded)
 
 
 def is_symlink(path: str) -> bool:
@@ -120,7 +123,7 @@ def is_secret_file(path: str) -> bool:
         directory.
     """
     normalised = normalise(path)
-    parts = Path(normalised).parts
+    parts = PureWindowsPath(normalised).parts
     name = parts[-1] if parts else ""
     if any(part in SECRET_DIRS for part in parts):
         return True
@@ -152,7 +155,7 @@ def is_zuzz_own_file(path: str) -> bool:
     if not resolved:
         return False
     normalised = normalise(resolved)
-    absolute = Path(normalised)
+    absolute = PureWindowsPath(normalised)
     for directory in ZUZZ_CORE_DIRS:
         if normalised.startswith(normalise(ROOT / directory)):
             return True
@@ -226,6 +229,10 @@ def resolve_absolute(path: str) -> Tuple[str, bool]:
         relative.
     """
     text = str(path).strip()
+    if text.startswith("\\\\?\\"):
+        text = text[4:]
+    if os.name != "nt" and not ntpath.splitdrive(text)[0]:
+        text = text.replace("\\", os.sep)
     if not text:
         relative = False
         absolute = ""
@@ -251,4 +258,4 @@ def escapes_project(path: str) -> bool:
     resolved, relative = resolve_absolute(path)
     if not relative or not resolved:
         return False
-    return not normalise(resolved).startswith(normalise(ROOT))
+    return not (normalise(resolved) == normalise(ROOT) or normalise(resolved).startswith(normalise(ROOT) + "\\"))

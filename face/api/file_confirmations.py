@@ -122,7 +122,7 @@ def build_preview(
         File count, total size, human-readable size and
         whether the operation is reversible.
     """
-    path = normalise(target)
+    path = str(target)
     if operation in ("read", "stat"):
         info = get_size_info(path)
         return _preview(1, info["bytes"], reversible=False)

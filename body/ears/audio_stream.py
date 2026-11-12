@@ -29,7 +29,8 @@ class AudioStream:
         self.buffer_size = int(sample_rate * buffer_duration)
         self._buffer = deque(maxlen=self.buffer_size)
         self._is_streaming = False
-        self._queue: asyncio.Queue = asyncio.Queue()
+        self._queue: asyncio.Queue = asyncio.Queue(maxsize=max(1, int(buffer_duration / chunk_duration)))
+        self._loop = None
         self._stream_task: Optional[asyncio.Task] = None
 
     async def start(self) -> None:
@@ -37,9 +38,11 @@ class AudioStream:
         if self._is_streaming:
             return
 
-        self._is_streaming = True
+        self._loop = asyncio.get_running_loop()
+        self._queue = asyncio.Queue(maxsize=self._queue.maxsize)
         self.microphone.set_callback(self._on_audio_data)
         self.microphone.start()
+        self._is_streaming = True
         self._stream_task = asyncio.create_task(self._stream_loop())
         logger.info("Audio stream started")
 
@@ -60,11 +63,20 @@ class AudioStream:
 
     def _on_audio_data(self, data: np.ndarray) -> None:
         """Callback for incoming audio data."""
+        if self._loop and self._is_streaming:
+            try:
+                self._loop.call_soon_threadsafe(self._enqueue, data.copy())
+            except RuntimeError:
+                return  # loop already closed during shutdown
+
+    def _enqueue(self, data: np.ndarray) -> None:
+        """Bound queue growth and mutate asyncio state only on its owner loop."""
+        if not self._is_streaming:
+            return
         self._buffer.extend(data.flatten())
-        try:
-            self._queue.put_nowait(data.copy())
-        except asyncio.QueueFull:
-            pass
+        if self._queue.full():
+            self._queue.get_nowait()  # drop oldest; retain current speech
+        self._queue.put_nowait(data)
 
     async def _stream_loop(self) -> None:
         """Background task to process audio stream."""

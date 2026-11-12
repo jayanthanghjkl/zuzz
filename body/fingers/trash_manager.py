@@ -119,11 +119,11 @@ class TrashManager:
                 or was issued for a different target.
             TrashError: When the item does not exist or cannot be moved.
         """
-        from body.fingers.guards import guard_deletion
+        from body.fingers.guards import guard_deletion, resolve_target
 
         resolved, _ = resolve_absolute(path)
         self._require(decision, "delete_files", resolved)
-        guard_deletion(resolved)
+        guard_deletion(resolve_target(path, self.logger))
         source = Path(resolved)
         if not source.exists():
             raise TrashError(f"nothing to trash at {resolved}")

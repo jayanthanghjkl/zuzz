@@ -302,6 +302,10 @@ class ChatActionRunner:
             # generate code, calls it, and is refused with "not attached" — which is
             # how an agent starts claiming it wrote a file it never wrote.
             kilo=getattr(self.state, "kilo", None),
+            mirror_neurons=getattr(self.state, "mirror_neurons", None),
+            multi_agent_orchestrator=getattr(self.state, "multi_agent_orchestrator", None),
+            communication_hub=getattr(self.state, "communication_hub", None),
+            agent_manager=getattr(self.state, "agent_manager", None),
         )
 
     # -----------------------------------------------------------------
@@ -695,6 +699,8 @@ class ChatActionRunner:
             result = spec.execute(decision, call.params, context)
             if inspect.isawaitable(result):
                 result = await result
+            if isinstance(result, dict) and (result.get("error") or result.get("status") in ("error", "failed")):
+                raise ToolRefused(str(result.get("error") or result.get("message") or "Tool reported failure"))
         except (
             HandsRefused,
             BodyRefused,

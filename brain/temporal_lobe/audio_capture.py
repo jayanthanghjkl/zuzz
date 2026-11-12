@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CaptureConfig:
     """Configuration for audio capture."""
+    language: Optional[str] = None
     sample_rate: int = 16000
     chunk_duration: float = 0.1
     vad_enabled: bool = True
@@ -98,8 +99,15 @@ class AudioCapture:
     async def capture_fixed_duration(self, duration: float) -> np.ndarray:
         """Capture audio for fixed duration."""
         await self.start()
-        await asyncio.sleep(duration)
-        return await self.stop()
+        try:
+            async with asyncio.timeout(duration):
+                async for chunk in self.audio_stream.stream_chunks():
+                    self._audio_buffer.extend(chunk.flatten())
+        except TimeoutError:
+            pass
+        finally:
+            audio = await self.stop()
+        return audio
 
     def get_captured_audio(self) -> np.ndarray:
         """Get currently captured audio without stopping."""

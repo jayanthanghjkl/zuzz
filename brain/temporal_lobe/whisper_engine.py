@@ -1,8 +1,6 @@
 """Whisper STT Engine - Speech-to-Text using OpenAI Whisper."""
 
-import whisper
 import numpy as np
-import torch
 import asyncio
 import logging
 from typing import Optional, Union
@@ -22,16 +20,16 @@ class WhisperEngine:
         fp16: bool = False,
     ):
         self.model_name = model_name
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or "cpu"
         self.language = language
         self.fp16 = fp16 and self.device == "cuda"
         self._model = None
-        self._load_model()
 
     def _load_model(self) -> None:
         """Load Whisper model."""
         try:
             logger.info(f"Loading Whisper model: {self.model_name} on {self.device}")
+            import whisper
             self._model = whisper.load_model(self.model_name, device=self.device)
             logger.info("Whisper model loaded successfully")
         except Exception as e:
@@ -56,7 +54,7 @@ class WhisperEngine:
             Dictionary with transcription results
         """
         if self._model is None:
-            raise WhisperError("Model not loaded")
+            self._load_model()
 
         try:
             if isinstance(audio, (str, Path)):
@@ -101,8 +99,9 @@ class WhisperEngine:
     def detect_language(self, audio: np.ndarray) -> str:
         """Detect language of audio."""
         if self._model is None:
-            raise WhisperError("Model not loaded")
+            self._load_model()
         try:
+            import whisper
             mel = whisper.log_mel_spectrogram(audio).to(self.device)
             _, probs = self._model.detect_language(mel)
             return max(probs, key=probs.get)

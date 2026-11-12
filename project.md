@@ -1,4 +1,4 @@
-﻿### File 1: `web\zuzz-assistant\PROJECT.md`
+### File 1: `web\zuzz-assistant\PROJECT.md`
 
 ```markdown
 # 🧠 ZUZZ — Digital Brain AI Agent
@@ -883,6 +883,25 @@ ngrok            (auth token)            Free, random URL
 
 ## 18. CURRENT PROGRESS
 
+### Core functional repair follow-up (2026-11-11)
+
+- [x] Implement chat streaming/action ordering, fallback and actual async tool-result fixes; native-path repairs and permission-gated browser voice capture/output.
+- [x] Add explicit voice policy, bounded single-use consent and stop handling; readiness endpoint exposes missing backend/desktop/audio configuration.
+- [x] Remove identified fake-success email/inbox/quiet-hours placeholders and nested tool event loops; add Python/JavaScript regressions and CI.
+- [x] Document reproducible setup and verification limits in `docs/CORE_FIXES_AND_VALIDATION.md`. Final local checks: **1,635 passed, 9 skipped** Python tests; **10 passed** JavaScript contracts; dependency/compile/diff checks clean.
+- [ ] Validate live inference, actual browser microphone/speaker output and desktop actions on the configured target computer. Sandbox has no model/provider/display; its real chat correctly fails with 503.
+- [ ] Complete the remaining prototype features and physically validate chosen hardware; automated pass counts do not certify those features.
+
+
+### Desk-assistant review (2026-11-11)
+
+- [x] Inspect ZUZZ and the Neo ESP32-S3 reference; document findings and integration proposal in `docs/DESK_ASSISTANT_REVIEW.md`.
+- [x] Run focused validation: 126 passed, 3 existing path-protection failures on Linux; reproduce voice listen-start and audio-stream limitations.
+- [x] Repair reproduced chat/path/voice blockers with deterministic tests; live deployment validation remains required before networked hardware integration.
+- [ ] Confirm exact board/display and audio location; implement and physically validate authenticated hardware support.
+
+The completion table below records earlier development claims, not a fresh full-suite or hardware certification. Remote audio streaming and ESP hardware support are not complete.
+
 ### Phase Status
  
  | Phase | Description | Status |
@@ -1230,7 +1249,7 @@ Code-complete 2026-10-07.
 ### Not Started
 
 - [ ] Phone calls (Bolna AI + Twilio) — deferred to Phase 10
-- [ ] Drive-root protection in `core/paths.py` (optional hardening)
+- [x] Drive-root protection in `core/paths.py` and POSIX protected-root hardening
 - [ ] Replace marketplace and routine-history placeholders with real implementations
 - [ ] Cloud brain connectors need re-verification (no outbound egress on this machine)
 - [ ] Download remaining local models (Qwen 1.5B, 3B)

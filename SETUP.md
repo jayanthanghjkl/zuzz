@@ -1,5 +1,9 @@
 # ZUZZ — Setup Guide
 
+**Core/voice repair setup and honest validation status:** see
+[docs/CORE_FIXES_AND_VALIDATION.md](docs/CORE_FIXES_AND_VALIDATION.md).
+A running server is not proof of a configured AI backend or working physical audio.
+
 Everything needed to get ZUZZ running on Jayanthan's laptop. Follow the steps in
 order; each one depends on the previous.
 
@@ -7,7 +11,7 @@ order; each one depends on the previous.
 
 ## 1. Python Environment
 
-ZUZZ needs Python 3.10 or newer. From the project root:
+ZUZZ needs Python 3.11 or newer. From the project root:
 
 ```powershell
 cd web\zuzz-assistant

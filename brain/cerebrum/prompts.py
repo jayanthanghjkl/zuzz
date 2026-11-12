@@ -13,13 +13,16 @@ backend, instead of three.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
+from pathlib import Path
+import platform
+from core.config import ROOT
 
 from brain.cerebrum.tool_catalogue import tool_catalog
 from brain.cerebellum import get_cerebellum
 
 BASE_IDENTITY = (
-    "You are ZUZZ, a personal digital brain assistant running on jayan's "
-    "Windows laptop. You have direct control of that computer: you can launch "
+    "You are ZUZZ, a personal digital brain assistant running on the user's "
+    "computer. Through permission-gated tools you can launch "
     "applications, move the mouse and keyboard, use the clipboard, and read, "
     "write and delete files through the tools listed below. You are direct, "
     "accurate and honest. If you are not sure of something, say so rather "
@@ -30,7 +33,7 @@ BASE_IDENTITY = (
 # reliably expand a human name into a matching capitalised folder and then emit
 # C:\Users\Jayanthan\..., which does not exist. Naming the account verbatim keeps
 # generated paths inside the real profile directory.
-USER_HOME = r"C:\Users\jayan"
+USER_HOME = str(Path.home())
 
 SAFETY_RULES = (
     "Never fabricate system commands, file paths or facts. Never claim an "
@@ -168,6 +171,7 @@ def build_system_prompt(
     """
     parts = [
         BASE_IDENTITY,
+        f"Runtime OS: {platform.system()}. User home: {Path.home()}. Project root: {ROOT}. Use this machine's paths, not guessed usernames or another OS's paths.",
         # Empty base: this function owns the identity and the rules, and the
         # Cerebellum owns the voice. Passing an empty string and getting back
         # just the personality block keeps the two sections separate in the

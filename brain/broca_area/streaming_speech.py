@@ -92,7 +92,6 @@ class StreamingSpeech:
     async def _speak_segment(self, text: str) -> SpeechSegment:
         """Speak a single text segment."""
         emotion = self.emotion.get_emotion()
-        ssml_params = self.emotion.get_ssml_params(emotion)
 
         audio_queue = await self.tts.synthesize_streaming(text)
 
@@ -101,14 +100,14 @@ class StreamingSpeech:
         async def playback_consumer():
             while True:
                 chunk = await audio_queue.get()
+                if isinstance(chunk, Exception):
+                    raise chunk
                 if chunk is None:
                     break
-                if self._audio_callback:
+                if self._audio_callback and self._is_speaking:
                     self._audio_callback(chunk)
-                if self._is_speaking:
-                    await self._speech_queue.put(chunk)
 
-        asyncio.create_task(playback_consumer())
+        await playback_consumer()
 
         return segment
 
@@ -117,15 +116,18 @@ class StreamingSpeech:
         if emotion:
             self.emotion.set_emotion(emotion)
 
-        output_path = self.tts.synthesize(text)
-        segment = SpeechSegment(text=text, is_final=True, emotion=self.emotion.get_emotion())
-
-        if self._audio_callback:
-            import soundfile as sf
-            data, sr = sf.read(output_path)
-            self._audio_callback((data * 32768).astype(np.int16).tobytes())
-
-        return segment
+        from pathlib import Path
+        output_path = await self.tts.synthesize_async(text)
+        try:
+            audio = Path(output_path).read_bytes()
+            if self._audio_callback:
+                # The streaming callback consistently receives encoded MP3/WAV,
+                # never unlabelled PCM mixed with encoded frames.
+                self._audio_callback(audio)
+            return SpeechSegment(text=text, audio_chunk=audio, is_final=True,
+                                 emotion=self.emotion.get_emotion())
+        finally:
+            Path(output_path).unlink(missing_ok=True)
 
     async def interrupt(self) -> None:
         """Interrupt current speech."""
@@ -145,9 +147,6 @@ class StreamingSpeech:
     def set_emotion(self, emotion: Union[Emotion, str]) -> None:
         """Set emotion for subsequent speech."""
         self.emotion.set_emotion(emotion)
-
-
-import numpy as np
 
 
 class StreamingError(Exception):

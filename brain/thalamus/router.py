@@ -13,6 +13,7 @@ from brain.brainstem.activity_logger import get_logger
 from brain.cerebrum.cerebrum import Cerebrum, CerebrumError, InferenceRefused
 from brain.thalamus.complexity_analyzer import ComplexityAnalyzer
 from brain.thalamus.load_balancer import LoadBalancer
+from brain.thalamus.stream_router import StreamRouter
 
 #: Which kind of work each routing level implies, so the Hypothalamus can be
 #: asked about the right thing. Levels 1 and 2 are local, 3 and above are the
@@ -27,7 +28,7 @@ _TASK_FOR_LEVEL = {
 }
 
 
-class Router:
+class Router(StreamRouter):
     """Routes messages between local and cloud brains.
 
     Attributes:
@@ -173,79 +174,6 @@ class Router:
                 self.logger.log("thalamus", "backend_failure", level=level, error=str(exc))
 
         raise CerebrumError("All backends failed — " + "; ".join(errors))
-
-    async def route_stream(
-        self, message: str, internet_available: bool = True
-    ) -> AsyncIterator[Dict[str, Any]]:
-        """Stream a reply, yielding fragments and a final metadata event.
-
-        Args:
-            message: Raw user text.
-            internet_available: Whether cloud providers can be reached.
-
-        Yields:
-            Dicts shaped ``{"type": "token", "content": ...}`` while streaming
-            and one final ``{"type": "done", ...}`` with routing metadata.
-
-        Raises:
-            CerebrumError: If the local backend fails mid-stream.
-        """
-        decision = self.analyzer.analyze(message, internet_available)
-        level = decision.level
-        if level > 2 and not self.cerebrum.bridge.configured_providers():
-            level = 2
-        # Streaming consults the Hypothalamus too. Streaming is the path the chat
-        # UI actually uses, so skipping the check here would leave the primary
-        # route through the brain with no thermal or VRAM protection — exactly the
-        # case the check exists for, running local inference on a machine that is
-        # already too hot or out of room.
-        #
-        # A refusal escalates to the cloud instead of raising, because the caller
-        # is already committed to receiving a stream: a stream that raises before
-        # its first token surfaces as a broken response, whereas one that arrives
-        # from the cloud is merely slower to start.
-        blocked = self._resource_block(level) if level <= 2 else ""
-        resource_skips: list[str] = []
-        if blocked:
-            resource_skips.append(f"level {level}: {blocked}")
-            self.logger.log("thalamus", "resource_reroute", level=level, reason=blocked)
-            cloud_level = next(
-                (candidate for candidate in (3, 4) if candidate > level), 3
-            )
-            if self.cerebrum.bridge.configured_providers():
-                level = cloud_level
-                self.logger.log(
-                    "thalamus",
-                    "stream_escalated",
-                    from_level=decision.level,
-                    to_level=level,
-                    reason=blocked,
-                )
-            else:
-                # Nowhere to escalate to. Say so rather than streaming from a
-                # machine that cannot afford it.
-                raise CerebrumError(
-                    "Local inference is unavailable and no cloud provider is "
-                    f"configured — {blocked}"
-                )
-        collected = ""
-        try:
-            async for fragment in self.cerebrum.stream(message, level):
-                collected += fragment
-                yield {"type": "token", "content": fragment}
-        except CerebrumError as exc:
-            raise CerebrumError(f"Streaming failed: {exc}") from exc
-
-        yield {
-            "type": "done",
-            "level": decision.level,
-            "streamed_level": level,
-            "reason": decision.reason,
-            "provider": self.cerebrum.last_provider,
-            "chars": len(collected),
-            "degraded": level != decision.level,
-            "resource_skips": resource_skips,
-        }
 
     def _resource_block(self, level: int) -> str:
         """Return why a level cannot be attempted now, or an empty string.
